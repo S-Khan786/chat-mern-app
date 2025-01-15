@@ -1,6 +1,6 @@
-import mongoose  from "mongoose";
+import mongoose  from "mongoose"; 
 
-mongoose.connect('mongodb://localhost/chat-app');
+mongoose.connect(`mongodb://localhost/${process.env.CHAT_DB}`);
 
 const db = mongoose.connection;
 
