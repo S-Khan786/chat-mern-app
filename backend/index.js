@@ -1,6 +1,10 @@
 import express from "express";
-import indexRoutes from "./routes/index.js";
 import dotenv from "dotenv";
+
+
+import indexRoutes from "./routes/index.js";
+import db from './config/mongoose.js';
+
 
 const app = express();
 dotenv.config();
@@ -16,3 +20,4 @@ app.listen(port, (err) => {
   }
   console.log(`Server is running on the port: ${port}`);
 });
+
