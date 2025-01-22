@@ -9,6 +9,8 @@ import db from './config/mongoose.js';
 const app = express();
 dotenv.config();
 
+app.use(express.json());
+
 const port = process.env.PORT || 8000;
 
 // use express router

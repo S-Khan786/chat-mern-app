@@ -1,3 +1,7 @@
-export const home = function(req, res) {
-    res.send('<h1>Express is Up for CHAT APP!</h1>');
+export const home = async ()=> {
+    try {
+        console.log('working Home');
+    } catch(err) {
+        
+    }
 }
