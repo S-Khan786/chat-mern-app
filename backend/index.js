@@ -2,19 +2,23 @@ import express from "express";
 import dotenv from "dotenv";
 
 
-import indexRoutes from "./routes/index.js";
+import userRout from "./routes/userRout.js";
+import messageRout from "./routes/messageRout.js";
 import db from './config/mongoose.js';
+import cookieParser from "cookie-parser";
 
 
 const app = express();
 dotenv.config();
 
 app.use(express.json());
+app.use(cookieParser());
 
 const port = process.env.PORT || 8000;
 
 // use express router
-app.use("/", indexRoutes);
+app.use("/api/auth", userRout);
+app.use("/api/message", messageRout);
 
 app.listen(port, (err) => {
   if (err) {
