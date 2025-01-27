@@ -3,9 +3,11 @@ import { Link } from "react-router-dom";
 import axios from 'axios';
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext.jsx";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { setAuthUser } = useAuth();
   const [userInput, setUserInput] = useState({}); // State to store form input values
   const [loading, setLoading] = useState(false);
 
@@ -30,6 +32,7 @@ const Login = () => {
       }
       toast.success(data.message);
       localStorage.setItem('chatapp', JSON.stringify(data));
+      setAuthUser(data);
       setLoading(false);
       navigate('/');
       

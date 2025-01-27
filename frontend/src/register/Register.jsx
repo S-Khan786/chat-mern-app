@@ -3,9 +3,11 @@ import { Link } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext.jsx";
 
 const Register = () => {
   const navigate = useNavigate();
+  const { setAuthUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [inputData, setInputData] = useState({});
 
@@ -43,6 +45,7 @@ const Register = () => {
 
       toast.success(data.message);
       localStorage.setItem('chatapp', JSON.stringify(data));
+      setAuthUser(data);
       setLoading(false);
       navigate('/login');
       
