@@ -43,6 +43,7 @@ export const userRegister = async (req, res)=> {
             username: newUser.username,
             profilePic: newUser.profilePic,
             email: newUser.email,
+            message: 'User Successfully Registered'
         });
 
     } catch(err) {
@@ -82,7 +83,7 @@ export const userLogin = async (req, res) => {
             username: user.username,
             profilePic: user.profilePic,
             email: user.email,
-            message: 'Successfully Login'
+            message: 'User Successfully Login'
         })
 
     } catch(err) {

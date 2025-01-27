@@ -1,13 +1,20 @@
-
-
+import Login from "./login/Login.jsx";
+import Register from "./register/Register.jsx";
+import { ToastContainer } from 'react-toastify';
+import { Route, Routes } from 'react-router-dom';
 function App() {
 
   return (
     <>
-    <h1 className="text-3xl font-bold underline text-green-400 ">
-      Hello world!
-    </h1>
-    <button className="btn btn-success text-amber-700">Success</button>
+      <div className="p-2 w-screen h-screen flex items-center justify-center">
+      <Routes>
+        <Route path="/login" element={<Login/>}/>
+        <Route path="/register" element={<Register/>}/>
+      </Routes>
+
+        <ToastContainer/>
+      </div>
+
     </>
   )
 }
