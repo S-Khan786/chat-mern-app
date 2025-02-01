@@ -17,9 +17,9 @@ export const getUserBySearch = async (req, res) => {
                     _id: {$ne: currentUserID}
                 }
             ]
-        }).select("-password").select("-email")
+        }).select("-password").select("email")
 
-        console.log('Users Found:', user);
+        // console.log('Users Found:', user);
 
         res.status(200).send(user);
 
