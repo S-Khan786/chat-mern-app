@@ -9,7 +9,8 @@ import db from './config/mongoose.js';
 import cookieParser from "cookie-parser";
 
 
-const app = express();
+import {app, server} from './Socket/socket.js';
+
 dotenv.config();
 
 app.use(express.json());
@@ -22,7 +23,7 @@ app.use("/api/auth", userRout);
 app.use("/api/message", messageRout);
 app.use('/api/user', userGet);
 
-app.listen(port, (err) => {
+server.listen(port, (err) => {
   if (err) {
     console.log(`Error: ${err}`);
   }
