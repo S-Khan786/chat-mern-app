@@ -9,6 +9,7 @@
   <h1>Real-Time Chat Application</h1>
 
   <p><strong>Overview:</strong></p>
+  <strong><a href="https://sk-chat-app.onrender.com/">Demo</a></strong>
   <p>This is a real-time chat application built using the <strong>MERN</strong> (MongoDB, Express.js, React, Node.js) stack and <strong>Socket.io</strong>. The application provides the following features:</p>
   <ul>
     <li><strong>User Authentication</strong>: Users can register, log in, and log out.</li>
