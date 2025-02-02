@@ -53,7 +53,7 @@
     </li>
   </ol>
     <footer>
-    <p>&copy; 2025 <strong>Mohammad Sahil</strong>. All rights reserved.</p>
+    <p>&copy; 2024 <strong>Mohammad Sahil</strong>. All rights reserved.</p>
   </footer>
 </body>
 </html>
