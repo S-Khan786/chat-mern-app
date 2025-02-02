@@ -6,8 +6,9 @@ import { useAuth } from "../../context/AuthContext.jsx";
 import { useNavigate } from "react-router-dom";
 import { IoArrowBackSharp } from "react-icons/io5";
 import { BiLogOut } from "react-icons/bi";
+import userConversation from "../../Zustans/useConversation.jsx";
 
-function Sidebar() {
+function Sidebar({ onSelectUser }) {
   const navigate = useNavigate();
   const { authUser, setAuthUser } = useAuth();
   const [searchInput, setSearchInput] = useState("");
@@ -15,6 +16,15 @@ function Sidebar() {
   const [chatUser, setChatUser] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [loading, setLoading] = useState(false);
+  // const [newMessageUsers, setNewMessageUsers] = useState('');
+  const {
+    messages,
+    setMessage,
+    selectedConversation,
+    setSelectedConversation,
+  } = userConversation();
+
+  // const talkedWith = chatUser.map((user) => (user._id));
 
   //show user with u chatted
   useEffect(() => {
@@ -52,7 +62,7 @@ function Sidebar() {
         console.log(data.message);
       }
       setLoading(false);
-      if (data.loading === 0) {
+      if (data.length === 0) {
         toast.info("User not found");
       } else {
         setSearchUser(data);
@@ -64,8 +74,10 @@ function Sidebar() {
   };
 
   //show which user is selected
-  const handelUserClick = (user) => {
-    selectedUserId(user._id);
+  const handleUserClick = (user) => {
+    onSelectUser(user);
+    setSelectedConversation(user);
+    setSelectedUserId(user._id);
   };
 
   //back from search result
@@ -130,10 +142,10 @@ function Sidebar() {
         <>
           <div className="min-h-[70%] max-h-[80%] m overflow-y-auto scrollbar ">
             <div className="w-auto">
-              {searchUser.map((user, index) => (
+              {searchUser.map((user) => (
                 <div key={user._id}>
                   <div
-                    onClick={() => handelUserClick(user)}
+                    onClick={() => handleUserClick(user)}
                     className={`flex gap-3 
                                                 items-center rounded 
                                                 p-2 py-1 cursor-pointer
@@ -183,10 +195,10 @@ function Sidebar() {
                 </>
               ) : (
                 <>
-                  {chatUser.map((user, index) => (
+                  {chatUser.map((user) => (
                     <div key={user._id}>
                       <div
-                        onClick={() => handelUserClick(user)}
+                        onClick={() => handleUserClick(user)}
                         className={`flex gap-3 
                                                 items-center rounded 
                                                 p-2 py-1 cursor-pointer
