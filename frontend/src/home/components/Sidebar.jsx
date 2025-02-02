@@ -7,6 +7,8 @@ import { useNavigate } from "react-router-dom";
 import { IoArrowBackSharp } from "react-icons/io5";
 import { BiLogOut } from "react-icons/bi";
 import userConversation from "../../Zustans/useConversation.jsx";
+import { useSocketContext } from "../../context/socketContext.jsx";
+import notify from "../../assets/sound/notification.mp3";
 
 function Sidebar({ onSelectUser }) {
   const navigate = useNavigate();
@@ -16,7 +18,9 @@ function Sidebar({ onSelectUser }) {
   const [chatUser, setChatUser] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [loading, setLoading] = useState(false);
-  // const [newMessageUsers, setNewMessageUsers] = useState('');
+  const [newMessageUsers, setNewMessageUsers] = useState('');
+  const {onlineUser, socket} = useSocketContext();
+
   const {
     messages,
     setMessage,
@@ -24,7 +28,18 @@ function Sidebar({ onSelectUser }) {
     setSelectedConversation,
   } = userConversation();
 
-  // const talkedWith = chatUser.map((user) => (user._id));
+
+  const nowOnline = chatUser.map((user)=>(user._id));
+  //chats function
+  const isOnline = nowOnline.map(userId => onlineUser.includes(userId));
+
+  useEffect(() => {
+    socket?.on("newMessage", (newMessage) => {
+      setNewMessageUsers(newMessage)
+    });
+    return () => socket?.off("newMessage");
+  }, [socket, messages]);
+  
 
   //show user with u chatted
   useEffect(() => {
@@ -78,6 +93,7 @@ function Sidebar({ onSelectUser }) {
     onSelectUser(user);
     setSelectedConversation(user);
     setSelectedUserId(user._id);
+    setNewMessageUsers('');
   };
 
   //back from search result
@@ -142,7 +158,7 @@ function Sidebar({ onSelectUser }) {
         <>
           <div className="min-h-[70%] max-h-[80%] m overflow-y-auto scrollbar ">
             <div className="w-auto">
-              {searchUser.map((user) => (
+              {searchUser.map((user, index) => (
                 <div key={user._id}>
                   <div
                     onClick={() => handleUserClick(user)}
@@ -157,8 +173,7 @@ function Sidebar({ onSelectUser }) {
                   >
                     {/*Socket is Online*/}
                     <div
-                      // className={`avatar ${isOnline[index] ? "online" : ""}`}
-                      className="avatar"
+                      className={`avatar ${isOnline[index] ? "online" : ""}`}
                     >
                       <div className="w-12 rounded-full">
                         <img src={user.profilePic} alt="user.img" />
@@ -195,7 +210,7 @@ function Sidebar({ onSelectUser }) {
                 </>
               ) : (
                 <>
-                  {chatUser.map((user) => (
+                  {chatUser.map((user, index) => (
                     <div key={user._id}>
                       <div
                         onClick={() => handleUserClick(user)}
@@ -210,10 +225,9 @@ function Sidebar({ onSelectUser }) {
                       >
                         {/*Socket is Online*/}
                         <div
-                          // className={`avatar ${
-                          //   isOnline[index] ? "online" : ""
-                          // }`}
-                          className="avatar"
+                          className={`avatar ${
+                            isOnline[index] ? "online" : ""
+                          }`}
                         >
                           <div className="w-12 rounded-full">
                             <img src={user.profilePic} alt="user.img" />
@@ -224,8 +238,8 @@ function Sidebar({ onSelectUser }) {
                             {user.username}
                           </p>
                         </div>
-                        {/* <div>
-                          {newMessageUsers.reciverId === authUser._id &&
+                        <div>
+                          {newMessageUsers.receiverId === authUser._id &&
                           newMessageUsers.senderId === user._id ? (
                             <div className="rounded-full bg-green-700 text-sm text-white px-[4px]">
                               +1
@@ -233,7 +247,7 @@ function Sidebar({ onSelectUser }) {
                           ) : (
                             <></>
                           )}
-                        </div> */}
+                        </div>
                       </div>
                       <div className="divider divide-solid px-3 h-[1px]"></div>
                     </div>

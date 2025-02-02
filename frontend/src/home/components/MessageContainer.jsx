@@ -4,26 +4,26 @@ import { useAuth } from "../../context/AuthContext";
 import { TiMessages } from "react-icons/ti";
 import { IoArrowBackSharp, IoSend } from "react-icons/io5";
 import axios from "axios";
-// import { useSocketContext } from "../../context/SocketContext";
-// import notify from "../../assets/sound/notification.mp3";
+import { useSocketContext } from "../../context/socketContext.jsx";
+import notify from "../../assets/sound/notification.mp3";
 
 const MessageContainer = ({ onBackUser }) => {
   const { messages, setMessage, selectedConversation } = userConversation();
+  const { socket } = useSocketContext();
   const { authUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendData, setSendData] = useState("");
   const lastMessageRef = useRef();
 
-  // useEffect(() => {
-  //   socket?.on("newMessage", (newMessage) => {
-  //     const sound = new Audio(notify);
-  //     sound.play();
-  //     setMessage([...messages, newMessage]);
-  //   });
-
-  //   return () => socket?.off("newMessage");
-  // }, [socket, setMessage, messages]);
+  useEffect(() => {
+    socket?.on("newMessage", (newMessage) => {
+      const sound = new Audio(notify);
+      sound.play();
+      setMessage([...messages, newMessage]);
+    });
+    return () => socket?.off("newMessage");
+  }, [socket, setMessage, messages]);
 
   useEffect(() => {
     setTimeout(() => {
