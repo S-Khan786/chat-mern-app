@@ -8,7 +8,6 @@ import { IoArrowBackSharp } from "react-icons/io5";
 import { BiLogOut } from "react-icons/bi";
 import userConversation from "../../Zustans/useConversation.jsx";
 import { useSocketContext } from "../../context/socketContext.jsx";
-import notify from "../../assets/sound/notification.mp3";
 
 function Sidebar({ onSelectUser }) {
   const navigate = useNavigate();
@@ -23,15 +22,14 @@ function Sidebar({ onSelectUser }) {
 
   const {
     messages,
-    setMessage,
     selectedConversation,
     setSelectedConversation,
   } = userConversation();
 
 
-  const nowOnline = chatUser.map((user)=>(user._id));
-  //chats function
-  const isOnline = nowOnline.map(userId => onlineUser.includes(userId));
+  const nowOnline = chatUser.map((user) => user._id); // List of user IDs in chat
+  const isOnline = nowOnline.map((userId) => onlineUser.includes(userId)); // Checks if each user ID is online
+  
 
   useEffect(() => {
     socket?.on("newMessage", (newMessage) => {
@@ -141,7 +139,7 @@ function Sidebar({ onSelectUser }) {
             onChange={(e) => setSearchInput(e.target.value)}
             type="text"
             placeholder="search user"
-            className="px-4 w-auto bg-transparent outline-none rounded-full"
+            className="px-4 w-auto bg-transparent outline-none rounded-full text-black"
           />
           <button className="btn btn-circle bg-sky-700 hover:bg-gray-950">
             <FaSearch />
@@ -191,7 +189,7 @@ function Sidebar({ onSelectUser }) {
           <div className="mt-auto px-1 py-1 flex">
             <button
               onClick={handSearchback}
-              className="bg-white rounded-full px-2 py-1 self-center"
+              className="bg-white rounded-full px-2 py-1 self-center text-black"
             >
               <IoArrowBackSharp size={25} />
             </button>
