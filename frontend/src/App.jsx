@@ -8,7 +8,7 @@ import VerifyUser from "./utils/VerifyUser.jsx";
 function App() {
   return (
     <>
-      <div className="p-2 w-screen h-screen flex items-center justify-center">
+      <div className="min-h-screen w-full p-3 sm:p-6 lg:p-8 flex items-center justify-center">
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
@@ -17,10 +17,11 @@ function App() {
           </Route>
         </Routes>
 
-        <ToastContainer />
+        <ToastContainer theme="dark" position="top-right" />
       </div>
     </>
   );
 }
 
 export default App;
+
