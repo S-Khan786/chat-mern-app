@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { TiMessages } from "react-icons/ti";
 import { IoArrowBackSharp, IoSend } from "react-icons/io5";
+import { FaUsers } from "react-icons/fa";
 import axios from "axios";
 import userConversation from "../../Zustans/useConversation";
 import { useAuth } from "../../context/AuthContext";
@@ -16,6 +17,7 @@ const MessageContainer = ({ onBackUser }) => {
   const [sendData, setSendData] = useState("");
   const [activeConversationId, setActiveConversationId] = useState(null);
   const [typingUser, setTypingUser] = useState(false);
+  const [showMembers, setShowMembers] = useState(false);
   const typingTimeout = useRef();
   const messageListRef = useRef();
   const handledMessageIds = useRef(new Set());
@@ -142,6 +144,7 @@ const MessageContainer = ({ onBackUser }) => {
       finally { setLoading(false); }
     };
     setTypingUser(false);
+    setShowMembers(false);
     setActiveConversationId(null);
     if (selectedConversation?._id) getMessages();
   }, [selectedConversation?._id, isGroup, setMessage, authUser?._id]);
@@ -175,15 +178,19 @@ const MessageContainer = ({ onBackUser }) => {
       <button onClick={onBackUser} aria-label="Back to messages" className="grid h-9 w-9 place-items-center rounded-xl bg-white/[.07] text-slate-200 transition hover:bg-white/[.13] md:hidden"><IoArrowBackSharp /></button>
       <div className="relative"><img className="h-10 w-10 rounded-xl object-cover" src={isGroup ? (selectedConversation.avatar || authUser?.profilePic) : selectedConversation.profilePic} alt="" /><span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#16213d] bg-emerald-400" /></div>
       <div className="min-w-0 flex-1"><h2 className="truncate font-semibold text-white">{isGroup ? selectedConversation.name : selectedConversation.username}</h2><p className="text-xs text-emerald-300">{typingUser ? "Typing..." : isGroup ? `${selectedConversation.participants?.length || 0} members` : "Active now"}</p></div>
+      {isGroup && <button type="button" onClick={() => setShowMembers((current) => !current)} aria-label="Show group members" className="grid h-9 w-9 place-items-center rounded-xl bg-white/[.07] text-slate-200 transition hover:bg-white/[.13]"><FaUsers /></button>}
       <span className="hidden rounded-full border border-white/10 bg-white/[.04] px-3 py-1 text-xs text-slate-400 sm:block">End-to-end vibes</span>
+      {isGroup && showMembers && <div className="absolute right-4 top-16 z-10 w-64 rounded-2xl border border-white/10 bg-[#101932] p-3 shadow-2xl"><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Group members</p><div className="max-h-56 space-y-2 overflow-y-auto">{(selectedConversation.participants || []).map((participant) => <div key={participant._id || participant} className="flex items-center gap-2"><img src={participant.profilePic || authUser?.profilePic} alt="" className="h-8 w-8 rounded-lg object-cover" /><div className="min-w-0"><p className="truncate text-sm font-medium text-white">{participant._id === authUser?._id ? "You" : participant.username || participant.fullname || String(participant)}</p>{selectedConversation.admins?.some((admin) => String(admin?._id || admin) === String(participant._id)) && <p className="text-[10px] text-violet-300">Admin</p>}</div></div>)}</div></div>}
     </header>
     <div ref={messageListRef} className="scrollbar flex-1 overflow-y-auto bg-[radial-gradient(circle_at_center,rgba(124,92,255,.08),transparent_36rem)] px-4 py-5 sm:px-6">
       {loading && <div className="grid h-full place-items-center"><span className="loading loading-spinner text-violet-300" /></div>}
       {!loading && !visibleMessages.length && <div className="grid h-full place-items-center text-center text-sm text-slate-400"><div><span className="mb-3 block text-3xl">👋</span>Say hello and start the conversation.</div></div>}
       {!loading && visibleMessages.map((message) => {
         const mine = message.senderId === authUser._id || message.senderId?._id === authUser._id;
+        const sender = typeof message.senderId === "object" ? message.senderId : selectedConversation.participants?.find((participant) => String(participant._id || participant) === String(message.senderId));
+        const senderName = sender?._id === authUser?._id ? "You" : sender?.username || sender?.fullname;
         const receipt = message.deliveryStatus?.find((status) => status.userId === authUser._id || status.userId?._id === authUser._id);
-        return <div key={message._id} className={`mb-4 flex ${mine ? "justify-end" : "justify-start"}`}><div className={`max-w-[82%] sm:max-w-[68%] ${mine ? "items-end" : "items-start"} flex flex-col`}><div className={`rounded-2xl px-4 py-2.5 text-sm leading-6 shadow-lg ${mine ? "rounded-br-md bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-violet-950/30" : "rounded-bl-md border border-white/10 bg-white/[.08] text-slate-100"}`}>{message.message || "Attachment"}</div><div className="flex items-center gap-2"><time className="mt-1.5 px-1 text-[10px] text-slate-500">{new Date(message.createdAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "numeric" })}</time>{mine && <span className="text-[10px] text-slate-500">{receipt?.status || "sent"}</span>}<div className="flex gap-1">{["👍", "❤️", "😂"].map((emoji) => <button key={emoji} type="button" onClick={() => axios.put(`/api/message/${message._id}/reaction`, { emoji })} className="text-xs opacity-60 transition hover:scale-125 hover:opacity-100">{emoji}</button>)}</div></div>{message.reactions?.length > 0 && <div className="mt-1 rounded-full bg-white/10 px-2 py-0.5 text-xs">{message.reactions.map((reaction) => reaction.emoji).join(" ")}</div>}</div></div>;
+        return <div key={message._id} className={`mb-4 flex ${mine ? "justify-end" : "justify-start"}`}><div className={`max-w-[82%] sm:max-w-[68%] ${mine ? "items-end" : "items-start"} flex flex-col`}>{isGroup && <span className="mb-1 px-1 text-[11px] font-semibold text-violet-300">{senderName || "Group member"}</span>}<div className={`rounded-2xl px-4 py-2.5 text-sm leading-6 shadow-lg ${mine ? "rounded-br-md bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-violet-950/30" : "rounded-bl-md border border-white/10 bg-white/[.08] text-slate-100"}`}>{message.message || "Attachment"}</div><div className="flex items-center gap-2"><time className="mt-1.5 px-1 text-[10px] text-slate-500">{new Date(message.createdAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "numeric" })}</time>{mine && <span className="text-[10px] text-slate-500">{receipt?.status || "sent"}</span>}<div className="flex gap-1">{["👍", "❤️", "😂"].map((emoji) => <button key={emoji} type="button" onClick={() => axios.put(`/api/message/${message._id}/reaction`, { emoji })} className="text-xs opacity-60 transition hover:scale-125 hover:opacity-100">{emoji}</button>)}</div></div>{message.reactions?.length > 0 && <div className="mt-1 rounded-full bg-white/10 px-2 py-0.5 text-xs">{message.reactions.map((reaction) => reaction.emoji).join(" ")}</div>}</div></div>;
       })}
     </div>
     <form onSubmit={handleSubmit} className="border-t border-white/10 bg-[#101932]/60 p-3 sm:p-4"><div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[.07] p-1.5 focus-within:border-violet-400/60"><input value={sendData} onChange={handleInputChange} id="message" type="text" placeholder="Write a message..." className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500" /><button disabled={sending} aria-label="Send message" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-500 text-white transition hover:bg-violet-400 disabled:opacity-60">{sending ? <span className="loading loading-spinner loading-sm" /> : <IoSend className="text-lg" />}</button></div></form>

@@ -21,6 +21,7 @@ export const createGroupConversation = async (req, res) => {
       participants: allParticipants,
       admins: [req.user._id],
     });
+    await conversation.populate("participants", "username fullname profilePic");
     for (const participantId of conversation.participants) {
       emitToUser(participantId.toString(), "conversationCreated", conversation);
     }
@@ -63,6 +64,7 @@ export const updateGroupParticipants = async (req, res) => {
     }
     if (conversation.participants.length < 2) return res.status(400).json({ success: false, message: "A group needs at least two participants" });
     await conversation.save();
+    await conversation.populate("participants", "username fullname profilePic");
     if (action === "add") {
       emitToUser(userId.toString(), "conversationCreated", conversation);
     }

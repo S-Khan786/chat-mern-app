@@ -26,6 +26,7 @@ const createMessage = async ({ conversation, senderId, message, attachment }) =>
     attachment: hasAttachment ? attachment : undefined,
     conversationId: conversation._id,
   });
+  await newMessage.populate("senderId", "username fullname profilePic");
   console.log(`[message:created] messageId=${newMessage._id} conversationId=${conversation._id} senderId=${senderId} type=${conversation.type}`);
   await Conversation.updateOne(
     { _id: conversation._id },
@@ -73,7 +74,11 @@ const getPaginatedMessages = async (conversationId, req, res) => {
   const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 30, 1), 100);
   const query = { conversationId };
   if (req.query.before && mongoose.isValidObjectId(req.query.before)) query._id = { $lt: req.query.before };
-  const messages = await Message.find(query).sort({ createdAt: -1, _id: -1 }).limit(limit + 1).lean();
+  const messages = await Message.find(query)
+    .populate("senderId", "username fullname profilePic")
+    .sort({ createdAt: -1, _id: -1 })
+    .limit(limit + 1)
+    .lean();
   const hasMore = messages.length > limit;
   if (hasMore) messages.pop();
   messages.reverse();

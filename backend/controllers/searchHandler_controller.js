@@ -27,13 +27,14 @@ export const getUserBySearch = async (req, res) => {
 export const getCurrentChatters = async (req, res) => {
   try {
     const conversations = await Conversation.find({ participants: req.user._id })
+      .populate("participants", "username fullname profilePic")
       .sort({ updatedAt: -1 })
       .lean();
     const directUserIds = [
       ...new Set(
         conversations
           .filter(({ type }) => type !== "group")
-          .flatMap(({ participants }) => participants.map(String))
+          .flatMap(({ participants }) => participants.map((participant) => String(participant._id || participant)))
           .filter((id) => id !== req.user._id.toString()),
       ),
     ];
@@ -41,7 +42,6 @@ export const getCurrentChatters = async (req, res) => {
       .filter(({ type }) => type === "group")
       .map((conversation) => ({
         ...conversation,
-        participants: conversation.participants.map(String),
       }));
     if (!directUserIds.length) return res.status(200).json(groups);
     const users = await User.find({ _id: { $in: directUserIds } }).select("-password -email");
