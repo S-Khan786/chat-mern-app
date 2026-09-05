@@ -11,11 +11,14 @@ const publishMessage = async (message, conversation) => {
   await emitToConversationMembers(conversation._id, "newMessage", message);
 };
 
-const createMessage = async ({ conversation, senderId, message, attachment }) => {
+const createMessage = async ({ conversation, senderId, message, attachment, replyTo }) => {
   const content = typeof message === "string" ? message.trim() : "";
   const hasAttachment = attachment && typeof attachment.url === "string" && attachment.url.trim();
   if (!content && !hasAttachment) throw new Error("Message cannot be empty");
   if (content.length > 4000) throw new Error("Message is too long");
+  const replyMessage = mongoose.isValidObjectId(replyTo)
+    ? await Message.findOne({ _id: replyTo, conversationId: conversation._id }).select("_id")
+    : null;
   const receiverId = conversation.type === "direct"
     ? conversation.participants.find((participant) => !participant.equals(senderId))
     : undefined;
@@ -25,8 +28,12 @@ const createMessage = async ({ conversation, senderId, message, attachment }) =>
     message: content || undefined,
     attachment: hasAttachment ? attachment : undefined,
     conversationId: conversation._id,
+    replyTo: replyMessage?._id,
   });
-  await newMessage.populate("senderId", "username fullname profilePic");
+  await newMessage.populate([
+    { path: "senderId", select: "username fullname profilePic" },
+    { path: "replyTo", select: "message senderId deletedAt", populate: { path: "senderId", select: "username fullname profilePic" } },
+  ]);
   console.log(`[message:created] messageId=${newMessage._id} conversationId=${conversation._id} senderId=${senderId} type=${conversation.type}`);
   await Conversation.updateOne(
     { _id: conversation._id },
@@ -45,7 +52,7 @@ export const sendMessage = async (req, res) => {
     if (req.user._id.toString() === receiverId) return res.status(400).json({ success: false, message: "You cannot message yourself" });
     let conversation = await Conversation.findOne({ type: "direct", participants: { $all: [req.user._id, receiverId] } });
     if (!conversation) conversation = await Conversation.create({ type: "direct", participants: [req.user._id, receiverId] });
-    const newMessage = await createMessage({ conversation, senderId: req.user._id, message: req.body.message, attachment: req.body.attachment });
+    const newMessage = await createMessage({ conversation, senderId: req.user._id, message: req.body.message, attachment: req.body.attachment, replyTo: req.body.replyTo });
     console.log(`[message:send:response] messageId=${newMessage._id} senderId=${req.user._id} receiverId=${receiverId}`);
     return res.status(201).json(newMessage);
   } catch (error) {
@@ -61,7 +68,7 @@ export const sendConversationMessage = async (req, res) => {
     const conversation = await Conversation.findById(req.params.id);
     if (!conversation) return res.status(404).json({ success: false, message: "Conversation not found" });
     if (!isMember(conversation, req.user._id)) return res.status(403).json({ success: false, message: "You are not a conversation member" });
-    const newMessage = await createMessage({ conversation, senderId: req.user._id, message: req.body.message, attachment: req.body.attachment });
+    const newMessage = await createMessage({ conversation, senderId: req.user._id, message: req.body.message, attachment: req.body.attachment, replyTo: req.body.replyTo });
     return res.status(201).json(newMessage);
   } catch (error) {
     const status = messageErrorStatus(error);
@@ -75,7 +82,10 @@ const getPaginatedMessages = async (conversationId, req, res) => {
   const query = { conversationId };
   if (req.query.before && mongoose.isValidObjectId(req.query.before)) query._id = { $lt: req.query.before };
   const messages = await Message.find(query)
-    .populate("senderId", "username fullname profilePic")
+    .populate([
+      { path: "senderId", select: "username fullname profilePic" },
+      { path: "replyTo", select: "message senderId deletedAt", populate: { path: "senderId", select: "username fullname profilePic" } },
+    ])
     .sort({ createdAt: -1, _id: -1 })
     .limit(limit + 1)
     .lean();
@@ -83,6 +93,54 @@ const getPaginatedMessages = async (conversationId, req, res) => {
   if (hasMore) messages.pop();
   messages.reverse();
   return res.status(200).json({ conversationId, messages, hasMore, nextCursor: messages[0]?._id || null });
+};
+
+const getMemberMessage = async (messageId, userId) => {
+  if (!mongoose.isValidObjectId(messageId)) return { error: { status: 400, message: "Invalid message" } };
+  const message = await Message.findById(messageId);
+  if (!message) return { error: { status: 404, message: "Message not found" } };
+  const conversation = await Conversation.findById(message.conversationId).select("participants");
+  if (!isMember(conversation, userId)) return { error: { status: 403, message: "You are not a conversation member" } };
+  return { message, conversation };
+};
+
+export const editMessage = async (req, res) => {
+  try {
+    const result = await getMemberMessage(req.params.id, req.user._id);
+    if (result.error) return res.status(result.error.status).json({ success: false, message: result.error.message });
+    const { message } = result;
+    if (!message.senderId.equals(req.user._id)) return res.status(403).json({ success: false, message: "Only the sender can edit this message" });
+    const content = typeof req.body.message === "string" ? req.body.message.trim() : "";
+    if (!content || content.length > 4000) return res.status(400).json({ success: false, message: "Message must be between 1 and 4000 characters" });
+    message.message = content;
+    message.editedAt = new Date();
+    await message.save();
+    const updated = await Message.findById(message._id).populate("senderId", "username fullname profilePic").lean();
+    await emitToConversationMembers(message.conversationId, "messageUpdated", updated);
+    return res.status(200).json(updated);
+  } catch (error) {
+    console.error("Edit message error:", error.message);
+    return res.status(500).json({ success: false, message: "Unable to edit message" });
+  }
+};
+
+export const deleteMessage = async (req, res) => {
+  try {
+    const result = await getMemberMessage(req.params.id, req.user._id);
+    if (result.error) return res.status(result.error.status).json({ success: false, message: result.error.message });
+    const { message } = result;
+    if (!message.senderId.equals(req.user._id)) return res.status(403).json({ success: false, message: "Only the sender can delete this message" });
+    message.message = undefined;
+    message.attachment = undefined;
+    message.deletedAt = new Date();
+    await message.save();
+    const payload = { messageId: message._id, conversationId: message.conversationId, deletedAt: message.deletedAt };
+    await emitToConversationMembers(message.conversationId, "messageDeleted", payload);
+    return res.status(200).json(payload);
+  } catch (error) {
+    console.error("Delete message error:", error.message);
+    return res.status(500).json({ success: false, message: "Unable to delete message" });
+  }
 };
 
 export const getMessage = async (req, res) => {

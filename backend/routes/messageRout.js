@@ -1,7 +1,7 @@
 import express from 'express';
 import isLogin from '../config/middleware.js';
 import rateLimit from '../config/rateLimit.js';
-import { getConversationMessages, getMessage, markDelivered, markRead, removeReaction, sendConversationMessage, sendMessage, setReaction } from '../controllers/messages_controller.js';
+import { deleteMessage, editMessage, getConversationMessages, getMessage, markDelivered, markRead, removeReaction, sendConversationMessage, sendMessage, setReaction } from '../controllers/messages_controller.js';
 
 const router = express.Router();
 
@@ -12,6 +12,8 @@ router.patch('/:id/delivered', isLogin, markDelivered);
 router.patch('/:id/read', isLogin, markRead);
 router.put('/:id/reaction', isLogin, setReaction);
 router.delete('/:id/reaction', isLogin, removeReaction);
+router.patch('/:id', isLogin, editMessage);
+router.delete('/:id', isLogin, deleteMessage);
 
 router.get('/:id', isLogin , getMessage);
 

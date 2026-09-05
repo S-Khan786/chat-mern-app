@@ -12,6 +12,7 @@ export const SocketContextProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [onlineUser, setOnlineUser] = useState([]);
   const [incomingMessages, setIncomingMessages] = useState([]);
+  const [messageEvents, setMessageEvents] = useState([]);
   const { authUser } = useAuth();
   useEffect(() => {
     if (authUser) {
@@ -27,6 +28,10 @@ export const SocketContextProvider = ({ children }) => {
       socket.on("disconnect", (reason) => console.warn(`[frontend:socket:disconnected] reason=${reason}`));
       socket.onAny((event, payload) => {
         console.log(`[frontend:socket:event] event=${event}`, payload);
+        if (event === "messageUpdated" || event === "messageDeleted") {
+          setMessageEvents((current) => [...current.slice(-49), { type: event, payload }]);
+          return;
+        }
         if (event !== "newMessage") return;
         console.log(`[frontend:socket:newMessage] messageId=${payload?._id} conversationId=${payload?.conversationId} senderId=${payload?.senderId} receiverId=${payload?.receiverId}`);
         setIncomingMessages((current) => {
@@ -52,7 +57,7 @@ export const SocketContextProvider = ({ children }) => {
     }
   }, [authUser]);
   return (
-    <SocketContext.Provider value={{ socket, onlineUser, incomingMessages }}>
+    <SocketContext.Provider value={{ socket, onlineUser, incomingMessages, messageEvents }}>
       {children}
     </SocketContext.Provider>
   );

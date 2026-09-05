@@ -15,7 +15,7 @@ const messageSchema = mongoose.Schema({
         type: String,
         trim: true,
         maxlength: 4000,
-        required: function () { return !this.attachment?.url; },
+        required: function () { return !this.attachment?.url && !this.deletedAt; },
     },
     attachment: {
         url: { type: String, trim: true },
@@ -28,6 +28,12 @@ const messageSchema = mongoose.Schema({
         ref: 'Conversation',
         required: true
     },
+    replyTo: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Message',
+    },
+    editedAt: Date,
+    deletedAt: Date,
     deliveryStatus: [{
         userId: {
             type: mongoose.Schema.Types.ObjectId,
