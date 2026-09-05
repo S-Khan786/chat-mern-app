@@ -14,10 +14,11 @@ export const SocketContextProvider = ({ children }) => {
   const { authUser } = useAuth();
   useEffect(() => {
     if (authUser) {
-      const socket = io("https://sk-chat-app.onrender.com/", {
+      const socket = io(import.meta.env.VITE_API_URL || window.location.origin, {
         query: {
           userId: authUser?._id,
         },
+        withCredentials: true,
       });
       socket.on("getOnlineUsers", (users) => {
         setOnlineUser(users);
@@ -37,3 +38,4 @@ export const SocketContextProvider = ({ children }) => {
     </SocketContext.Provider>
   );
 };
+
