@@ -13,15 +13,18 @@ const messageSchema = mongoose.Schema({
     },
     message: {
         type: String,
-        required: true
+        required: true,
+        trim: true,
+        maxlength: 4000
     },
     conversationId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Conversation',
-        default:[]
+        required: true
     }
 }, { timestamps : true });
 
 const Message = mongoose.model('Message', messageSchema);
 
 export default Message;
+
