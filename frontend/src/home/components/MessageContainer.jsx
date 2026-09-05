@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { TiMessages } from "react-icons/ti";
 import { IoArrowBackSharp, IoSend } from "react-icons/io5";
 import { FaUsers } from "react-icons/fa";
+import { FiEdit2, FiTrash2 } from "react-icons/fi";
+import { FaReply } from "react-icons/fa6";
 import axios from "axios";
 import userConversation from "../../Zustans/useConversation";
 import { useAuth } from "../../context/AuthContext";
@@ -10,7 +12,7 @@ import notify from "../../assets/sound/notification.mp3";
 
 const MessageContainer = ({ onBackUser }) => {
   const { messages, setMessage, selectedConversation } = userConversation();
-  const { socket, incomingMessages } = useSocketContext();
+  const { socket, incomingMessages, messageEvents } = useSocketContext();
   const { authUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -18,6 +20,8 @@ const MessageContainer = ({ onBackUser }) => {
   const [activeConversationId, setActiveConversationId] = useState(null);
   const [typingUser, setTypingUser] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
+  const [replyMessage, setReplyMessage] = useState(null);
+  const [editingMessage, setEditingMessage] = useState(null);
   const typingTimeout = useRef();
   const messageListRef = useRef();
   const handledMessageIds = useRef(new Set());
@@ -115,6 +119,17 @@ const MessageContainer = ({ onBackUser }) => {
     };
   }, [socket, setMessage]);
 
+  useEffect(() => {
+    messageEvents.forEach(({ type, payload }) => {
+      if (type === "messageUpdated") {
+        setMessage((current) => current.map((message) => message._id === payload._id ? { ...message, ...payload } : message));
+      }
+      if (type === "messageDeleted") {
+        setMessage((current) => current.map((message) => message._id === payload.messageId ? { ...message, message: "", attachment: undefined, deletedAt: payload.deletedAt } : message));
+      }
+    });
+  }, [messageEvents, setMessage]);
+
   useEffect(() => () => clearTimeout(typingTimeout.current), []);
 
   useLayoutEffect(() => {
@@ -145,6 +160,9 @@ const MessageContainer = ({ onBackUser }) => {
     };
     setTypingUser(false);
     setShowMembers(false);
+    setReplyMessage(null);
+    setEditingMessage(null);
+    setSendData("");
     setActiveConversationId(null);
     if (selectedConversation?._id) getMessages();
   }, [selectedConversation?._id, isGroup, setMessage, authUser?._id]);
@@ -162,13 +180,29 @@ const MessageContainer = ({ onBackUser }) => {
     if (!sendData.trim()) return;
     setSending(true);
     try {
+      if (editingMessage) {
+        const { data } = await axios.patch(`/api/message/${editingMessage._id}`, { message: sendData });
+        setMessage((current) => current.map((message) => message._id === data._id ? { ...message, ...data } : message));
+        setEditingMessage(null);
+        setSendData("");
+        return;
+      }
       const endpoint = isGroup ? `/api/message/conversation/${selectedConversation._id}/send` : `/api/message/send/${selectedConversation._id}`;
-      const { data } = await axios.post(endpoint, { message: sendData });
+      const { data } = await axios.post(endpoint, { message: sendData, replyTo: replyMessage?._id });
       if (!activeConversationId && data.conversationId) setActiveConversationId(data.conversationId);
-      setSendData(""); setMessage((current) => current.some((message) => message._id === data._id) ? current : [...current, data]);
+      setSendData(""); setReplyMessage(null); setMessage((current) => current.some((message) => message._id === data._id) ? current : [...current, data]);
       socket?.emit("typing:stop", { conversationId: data.conversationId || activeConversationId });
     } catch (error) { console.error(error); }
     finally { setSending(false); }
+  };
+
+  const startEdit = (message) => { setEditingMessage(message); setReplyMessage(null); setSendData(message.message || ""); };
+  const deleteMessage = async (message) => {
+    if (!window.confirm("Delete this message?")) return;
+    try {
+      await axios.delete(`/api/message/${message._id}`);
+      setMessage((current) => current.map((item) => item._id === message._id ? { ...item, message: "", attachment: undefined, deletedAt: new Date().toISOString() } : item));
+    } catch (error) { console.error(error); }
   };
 
   if (!selectedConversation) return <section className="flex flex-1 items-center justify-center p-8"><div className="max-w-sm text-center"><div className="mx-auto mb-6 grid h-20 w-20 place-items-center rounded-3xl bg-gradient-to-br from-violet-500/30 to-cyan-400/20 ring-1 ring-white/10"><TiMessages className="text-5xl text-violet-200" /></div><p className="text-2xl font-semibold text-white">Welcome back, {authUser?.username}</p><p className="mt-3 text-sm leading-6 text-slate-400">Choose a conversation and turn a quiet moment into something meaningful.</p></div></section>;
@@ -190,10 +224,11 @@ const MessageContainer = ({ onBackUser }) => {
         const sender = typeof message.senderId === "object" ? message.senderId : selectedConversation.participants?.find((participant) => String(participant._id || participant) === String(message.senderId));
         const senderName = sender?._id === authUser?._id ? "You" : sender?.username || sender?.fullname;
         const receipt = message.deliveryStatus?.find((status) => status.userId === authUser._id || status.userId?._id === authUser._id);
-        return <div key={message._id} className={`mb-4 flex ${mine ? "justify-end" : "justify-start"}`}><div className={`max-w-[82%] sm:max-w-[68%] ${mine ? "items-end" : "items-start"} flex flex-col`}>{isGroup && <span className="mb-1 px-1 text-[11px] font-semibold text-violet-300">{senderName || "Group member"}</span>}<div className={`rounded-2xl px-4 py-2.5 text-sm leading-6 shadow-lg ${mine ? "rounded-br-md bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-violet-950/30" : "rounded-bl-md border border-white/10 bg-white/[.08] text-slate-100"}`}>{message.message || "Attachment"}</div><div className="flex items-center gap-2"><time className="mt-1.5 px-1 text-[10px] text-slate-500">{new Date(message.createdAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "numeric" })}</time>{mine && <span className="text-[10px] text-slate-500">{receipt?.status || "sent"}</span>}<div className="flex gap-1">{["👍", "❤️", "😂"].map((emoji) => <button key={emoji} type="button" onClick={() => axios.put(`/api/message/${message._id}/reaction`, { emoji })} className="text-xs opacity-60 transition hover:scale-125 hover:opacity-100">{emoji}</button>)}</div></div>{message.reactions?.length > 0 && <div className="mt-1 rounded-full bg-white/10 px-2 py-0.5 text-xs">{message.reactions.map((reaction) => reaction.emoji).join(" ")}</div>}</div></div>;
+        const replyPreview = message.replyTo && (message.replyTo.message || "Deleted message");
+        return <div key={message._id} className={`mb-4 flex ${mine ? "justify-end" : "justify-start"}`}><div className={`max-w-[82%] sm:max-w-[68%] ${mine ? "items-end" : "items-start"} flex flex-col`}>{isGroup && <span className="mb-1 px-1 text-[11px] font-semibold text-violet-300">{senderName || "Group member"}</span>}{replyPreview && <div className="mb-1 max-w-full rounded-lg border-l-2 border-violet-300/60 bg-black/10 px-2 py-1 text-xs text-slate-400">Replying to: {replyPreview}</div>}<div className={`rounded-2xl px-4 py-2.5 text-sm leading-6 shadow-lg ${mine ? "rounded-br-md bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-violet-950/30" : "rounded-bl-md border border-white/10 bg-white/[.08] text-slate-100"}`}>{message.deletedAt ? <em className="text-slate-400">Message deleted</em> : message.message || "Attachment"}</div><div className="flex items-center gap-2"><time className="mt-1.5 px-1 text-[10px] text-slate-500">{new Date(message.createdAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "numeric" })}</time>{mine && <span className="text-[10px] text-slate-500">{receipt?.status || "sent"}</span>}<button type="button" onClick={() => setReplyMessage(message)} aria-label="Reply to message" className="text-xs opacity-60 transition hover:opacity-100"><FaReply /></button>{mine && !message.deletedAt && <><button type="button" onClick={() => startEdit(message)} aria-label="Edit message" className="text-xs opacity-60 transition hover:opacity-100"><FiEdit2 /></button><button type="button" onClick={() => deleteMessage(message)} aria-label="Delete message" className="text-xs opacity-60 transition hover:opacity-100"><FiTrash2 /></button></>}<div className="flex gap-1">{["👍", "❤️", "😂"].map((emoji) => <button key={emoji} type="button" onClick={() => axios.put(`/api/message/${message._id}/reaction`, { emoji })} className="text-xs opacity-60 transition hover:scale-125 hover:opacity-100">{emoji}</button>)}</div></div>{message.reactions?.length > 0 && <div className="mt-1 rounded-full bg-white/10 px-2 py-0.5 text-xs">{message.reactions.map((reaction) => reaction.emoji).join(" ")}</div>}</div></div>;
       })}
     </div>
-    <form onSubmit={handleSubmit} className="theme-surface shrink-0 border-t border-white/10 p-2.5 sm:p-4"><div className="theme-input flex items-center gap-2 rounded-2xl border p-1.5 focus-within:border-violet-400/60"><input value={sendData} onChange={handleInputChange} id="message" type="text" placeholder="Write a message..." className="min-w-0 flex-1 px-3 py-2 text-sm text-white placeholder:text-slate-500" /><button disabled={sending} aria-label="Send message" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-500 text-[#21151a] transition hover:-translate-y-0.5 hover:bg-violet-400 disabled:opacity-60">{sending ? <span className="loading loading-spinner loading-sm" /> : <IoSend className="text-lg" />}</button></div></form>
+    <form onSubmit={handleSubmit} className="theme-surface shrink-0 border-t border-white/10 p-2.5 sm:p-4">{(replyMessage || editingMessage) && <div className="mb-2 flex items-center justify-between rounded-xl border border-violet-300/20 bg-violet-500/10 px-3 py-2 text-xs text-slate-300"><span>{editingMessage ? "Editing message" : `Replying to: ${replyMessage?.message || "Deleted message"}`}</span><button type="button" onClick={() => { setReplyMessage(null); setEditingMessage(null); setSendData(""); }} className="text-slate-400 hover:text-white">Cancel</button></div>}<div className="theme-input flex items-center gap-2 rounded-2xl border p-1.5 focus-within:border-violet-400/60"><input value={sendData} onChange={handleInputChange} id="message" type="text" placeholder={editingMessage ? "Edit your message..." : "Write a message..."} className="min-w-0 flex-1 px-3 py-2 text-sm text-white placeholder:text-slate-500" /><button disabled={sending} aria-label={editingMessage ? "Save edited message" : "Send message"} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-500 text-[#21151a] transition hover:-translate-y-0.5 hover:bg-violet-400 disabled:opacity-60">{sending ? <span className="loading loading-spinner loading-sm" /> : <IoSend className="text-lg" />}</button></div></form>
   </section>;
 };
 
