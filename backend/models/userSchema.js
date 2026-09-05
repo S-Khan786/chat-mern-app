@@ -4,16 +4,21 @@ const userSchema = mongoose.Schema({
     fullname: {
         type: String,
         required: true,
+        trim: true,
     },
     username: {
         type: String,
         required: true,
         unique: true,
+        trim: true,
+        lowercase: true,
     },
     email: {
         type: String,
         required: true,
         unique: true,
+        trim: true,
+        lowercase: true,
     },
     gender: {
         type: String,
@@ -36,3 +41,4 @@ const userSchema = mongoose.Schema({
 const User = mongoose.model('User', userSchema);
 
 export default User;
+
