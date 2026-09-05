@@ -6,11 +6,17 @@ const Home = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [isSidebarVisible, setIsSidebarVisible] = useState(true);
 
-  const handleUserSelect = (user) => { setSelectedUser(user); setIsSidebarVisible(false); };
-  const handleShowSidebar = () => { setIsSidebarVisible(true); setSelectedUser(null); };
+  const handleUserSelect = (user) => {
+    setSelectedUser(user);
+    setIsSidebarVisible(false);
+  };
+  const handleShowSidebar = () => {
+    setIsSidebarVisible(true);
+    setSelectedUser(null);
+  };
 
   return (
-    <main className="app-shell glass-panel flex h-[calc(100dvh-1rem)] min-h-0 w-full max-w-7xl overflow-hidden rounded-2xl lg:h-[min(860px,calc(100dvh-3rem))] lg:rounded-[1.75rem]">
+    <main className="app-shell glass-panel animate-rise flex h-[calc(100dvh-1rem)] min-h-0 w-full max-w-7xl overflow-hidden rounded-2xl lg:h-[min(860px,calc(100dvh-3rem))] lg:rounded-[1.75rem]">
       <div className={`w-full min-h-0 shrink-0 lg:flex lg:w-[22rem] ${isSidebarVisible ? "" : "hidden"}`}>
         <Sidebar onSelectUser={handleUserSelect} />
       </div>
@@ -23,5 +29,3 @@ const Home = () => {
 };
 
 export default Home;
-
-
