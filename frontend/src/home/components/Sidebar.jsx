@@ -1,272 +1,101 @@
 import { useEffect, useState } from "react";
 import { FaSearch } from "react-icons/fa";
+import { BiLogOut } from "react-icons/bi";
+import { IoArrowBackSharp } from "react-icons/io5";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useNavigate } from "react-router-dom";
-import { IoArrowBackSharp } from "react-icons/io5";
-import { BiLogOut } from "react-icons/bi";
 import userConversation from "../../Zustans/useConversation.jsx";
 import { useSocketContext } from "../../context/socketContext.jsx";
 
 function Sidebar({ onSelectUser }) {
   const navigate = useNavigate();
   const { authUser, setAuthUser } = useAuth();
+  const { onlineUser, socket } = useSocketContext();
+  const { messages, setSelectedConversation } = userConversation();
   const [searchInput, setSearchInput] = useState("");
   const [searchUser, setSearchUser] = useState([]);
   const [chatUser, setChatUser] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [newMessageUsers, setNewMessageUsers] = useState('');
-  const {onlineUser, socket} = useSocketContext();
-
-  const {
-    messages,
-    selectedConversation,
-    setSelectedConversation,
-  } = userConversation();
-
-
-  const nowOnline = chatUser.map((user) => user._id); // List of user IDs in chat
-  const isOnline = nowOnline.map((userId) => onlineUser.includes(userId)); // Checks if each user ID is online
-  
+  const [newMessageUsers, setNewMessageUsers] = useState({});
 
   useEffect(() => {
-    socket?.on("newMessage", (newMessage) => {
-      setNewMessageUsers(newMessage)
-    });
+    socket?.on("newMessage", setNewMessageUsers);
     return () => socket?.off("newMessage");
   }, [socket, messages]);
-  
 
-  //show user with u chatted
   useEffect(() => {
-    const chatUserHandler = async () => {
+    const loadChatters = async () => {
       setLoading(true);
-      try {
-        const chatters = await axios.get(`/api/user/currentchatters`);
-        const data = chatters.data;
-        if (data.success === false) {
-          setLoading(false);
-          console.log(data.message);
-        }
-        setLoading(false);
-        setChatUser(data);
-      } catch (err) {
-        setLoading(false);
-        console.log(err);
-      }
+      try { const { data } = await axios.get("/api/user/currentchatters"); setChatUser(data); }
+      catch (error) { console.error(error); }
+      finally { setLoading(false); }
     };
-    chatUserHandler();
+    loadChatters();
   }, []);
 
-  // console.log(ser);
-
-  //show user from the search result
-  const handleSearchSubmit = async (e) => {
-    e.preventDefault();
+  const handleSearchSubmit = async (event) => {
+    event.preventDefault();
+    if (!searchInput.trim()) return;
     setLoading(true);
-
     try {
-      const search = await axios.get(`/api/user/search?search=${searchInput}`);
-      const data = search.data;
-      if (data.success === false) {
-        setLoading(false);
-        console.log(data.message);
-      }
-      setLoading(false);
-      if (data.length === 0) {
-        toast.info("User not found");
-      } else {
-        setSearchUser(data);
-      }
-    } catch (err) {
-      setLoading(false);
-      console.log(err);
-    }
+      const { data } = await axios.get(`/api/user/search?search=${searchInput}`);
+      if (!data?.length) toast.info("No users found");
+      setSearchUser(data || []);
+    } catch (error) { console.error(error); }
+    finally { setLoading(false); }
   };
 
-  //show which user is selected
   const handleUserClick = (user) => {
-    onSelectUser(user);
-    setSelectedConversation(user);
-    setSelectedUserId(user._id);
-    setNewMessageUsers('');
+    onSelectUser(user); setSelectedConversation(user); setSelectedUserId(user._id); setNewMessageUsers({});
   };
 
-  //back from search result
-  const handSearchback = () => {
-    setSearchUser([]);
-    setSearchInput("");
-  };
-
-  //logout
   const handleLogOut = async () => {
-    const confirmlogout = window.prompt("type 'UserName' To LOGOUT");
-    if (confirmlogout === authUser.username) {
-      setLoading(true);
-      try {
-        const logout = await axios.post("/api/auth/logout");
-        const data = logout.data;
-        if (data?.success === false) {
-          setLoading(false);
-          console.log(data?.message);
-        }
-        toast.info(data?.message);
-        localStorage.removeItem("chatapp");
-        setAuthUser(null);
-        setLoading(false);
-        navigate("/login");
-      } catch (error) {
-        setLoading(false);
-        console.log(error);
-      }
-    } else {
-      toast.info("LogOut Cancelled");
-    }
+    if (window.prompt("Type your username to log out") !== authUser.username) return toast.info("Logout cancelled");
+    try {
+      const { data } = await axios.post("/api/auth/logout");
+      toast.info(data?.message); localStorage.removeItem("chatapp"); setAuthUser(null); navigate("/login");
+    } catch (error) { console.error(error); }
   };
 
-  console.log(searchUser);
+  const users = searchUser.length ? searchUser : chatUser;
+  const isSearching = searchUser.length > 0;
   return (
-    <div className="h-full w-auto px-1">
-      <div className="flex justify-between gap-2">
-        <form
-          onSubmit={handleSearchSubmit}
-          className="w-auto flex items-center justify-between bg-white rounded-full "
-        >
-          <input
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            type="text"
-            placeholder="search user"
-            className="px-4 w-auto bg-transparent outline-none rounded-full text-black"
-          />
-          <button className="btn btn-circle bg-sky-700 hover:bg-gray-950">
-            <FaSearch />
-          </button>
-        </form>
-        <img
-          onClick={() => navigate(`/profile/${authUser?._id}`)}
-          src={authUser?.profilePic}
-          className="self-center h-12 w-12 hover:scale-110 cursor-pointer"
-        />
+    <aside className="flex h-full w-full flex-col p-4 sm:p-5">
+      <div className="mb-5 flex items-center gap-3">
+        <div className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 text-lg font-black shadow-lg shadow-violet-950/40">C</div>
+        <div className="min-w-0 flex-1"><p className="text-xs font-bold uppercase tracking-[.18em] text-violet-300">Chatters</p><h1 className="truncate text-lg font-semibold text-white">Good to see you</h1></div>
+        <img onClick={() => navigate(`/profile/${authUser?._id}`)} src={authUser?.profilePic} alt="Your profile" className="h-10 w-10 cursor-pointer rounded-xl object-cover ring-2 ring-white/15 transition hover:ring-violet-400" />
       </div>
-      <div className="divider px-3"></div>
-      {searchUser?.length > 0 ? (
-        <>
-          <div className="min-h-[70%] max-h-[80%] m overflow-y-auto scrollbar ">
-            <div className="w-auto">
-              {searchUser.map((user, index) => (
-                <div key={user._id}>
-                  <div
-                    onClick={() => handleUserClick(user)}
-                    className={`flex gap-3 
-                                                items-center rounded 
-                                                p-2 py-1 cursor-pointer
-                                                ${
-                                                  selectedUserId === user?._id
-                                                    ? "bg-sky-500"
-                                                    : ""
-                                                } `}
-                  >
-                    {/*Socket is Online*/}
-                    <div
-                      className={`avatar ${isOnline[index] ? "online" : ""}`}
-                    >
-                      <div className="w-12 rounded-full">
-                        <img src={user.profilePic} alt="user.img" />
-                      </div>
-                    </div>
-                    <div className="flex flex-col flex-1">
-                      <p className="font-bold text-gray-950">{user.username}</p>
-                    </div>
-                  </div>
-                  <div className="divider divide-solid px-3 h-[1px]"></div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="mt-auto px-1 py-1 flex">
-            <button
-              onClick={handSearchback}
-              className="bg-white rounded-full px-2 py-1 self-center text-black"
-            >
-              <IoArrowBackSharp size={25} />
-            </button>
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="min-h-[70%] max-h-[80%] m overflow-y-auto scrollbar ">
-            <div className="w-auto">
-              {chatUser.length === 0 ? (
-                <>
-                  <div className="font-bold items-center flex flex-col text-xl text-yellow-500">
-                    <h1>Why are you Alone!!🤔</h1>
-                    <h1>Search username to chat</h1>
-                  </div>
-                </>
-              ) : (
-                <>
-                  {chatUser.map((user, index) => (
-                    <div key={user._id}>
-                      <div
-                        onClick={() => handleUserClick(user)}
-                        className={`flex gap-3 
-                                                items-center rounded 
-                                                p-2 py-1 cursor-pointer
-                                                ${
-                                                  selectedUserId === user?._id
-                                                    ? "bg-sky-500"
-                                                    : ""
-                                                } `}
-                      >
-                        {/*Socket is Online*/}
-                        <div
-                          className={`avatar ${
-                            isOnline[index] ? "online" : ""
-                          }`}
-                        >
-                          <div className="w-12 rounded-full">
-                            <img src={user.profilePic} alt="user.img" />
-                          </div>
-                        </div>
-                        <div className="flex flex-col flex-1">
-                          <p className="font-bold text-gray-950">
-                            {user.username}
-                          </p>
-                        </div>
-                        <div>
-                          {newMessageUsers.receiverId === authUser._id &&
-                          newMessageUsers.senderId === user._id ? (
-                            <div className="rounded-full bg-green-700 text-sm text-white px-[4px]">
-                              +1
-                            </div>
-                          ) : (
-                            <></>
-                          )}
-                        </div>
-                      </div>
-                      <div className="divider divide-solid px-3 h-[1px]"></div>
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
-          </div>
-          <div className="mt-auto px-1 py-1 flex">
-            <button
-              onClick={handleLogOut}
-              className="hover:bg-red-600  w-10 cursor-pointer hover:text-white rounded-lg"
-            >
-              <BiLogOut size={25} />
-            </button>
-            <p className="text-sm py-1">Logout</p>
-          </div>
-        </>
-      )}
-    </div>
+
+      <form onSubmit={handleSearchSubmit} className="group mb-5 flex items-center rounded-2xl border border-white/10 bg-white/[.06] px-3 py-1.5 transition focus-within:border-violet-400/60 focus-within:bg-white/[.09]">
+        <FaSearch className="ml-1 text-sm text-slate-400" />
+        <input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} type="search" placeholder="Search people" className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-white outline-none placeholder:text-slate-400" />
+        <button aria-label="Search" className="grid h-8 w-8 place-items-center rounded-xl bg-violet-500 text-xs text-white transition hover:bg-violet-400"><FaSearch /></button>
+      </form>
+
+      <div className="mb-3 flex items-center justify-between px-1"><h2 className="font-semibold text-white">{isSearching ? "Search results" : "Messages"}</h2><span className="rounded-full bg-violet-400/10 px-2 py-1 text-xs font-medium text-violet-200">{users.length}</span></div>
+      <div className="scrollbar min-h-0 flex-1 overflow-y-auto pr-1">
+        {loading && <div className="grid h-32 place-items-center"><span className="loading loading-spinner text-violet-300" /></div>}
+        {!loading && users.length === 0 && <div className="mt-10 px-5 text-center"><div className="mb-3 text-3xl">✨</div><p className="font-medium text-white">Your conversations will live here.</p><p className="mt-1 text-sm text-slate-400">Find someone by username to start.</p></div>}
+        {users.map((user) => {
+          const unread = newMessageUsers?.receiverId === authUser?._id && newMessageUsers?.senderId === user._id;
+          const online = onlineUser.includes(user._id);
+          return <button key={user._id} onClick={() => handleUserClick(user)} className={`mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition ${selectedUserId === user._id ? "bg-violet-500 text-white shadow-lg shadow-violet-950/30" : "hover:bg-white/[.07]"}`}>
+            <div className="relative shrink-0"><img src={user.profilePic} alt="" className="h-11 w-11 rounded-xl object-cover" />{online && <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#16213d] bg-emerald-400" />}</div>
+            <span className="min-w-0 flex-1"><span className="block truncate font-semibold">{user.username}</span><span className={`block truncate text-xs ${selectedUserId === user._id ? "text-violet-100" : "text-slate-400"}`}>{online ? "Online now" : "Tap to open conversation"}</span></span>
+            {unread && <span className="grid h-5 min-w-5 place-items-center rounded-full bg-emerald-400 px-1 text-[10px] font-bold text-emerald-950">1</span>}
+          </button>;
+        })}
+      </div>
+      <div className="mt-4 border-t border-white/10 pt-4">
+        {isSearching ? <button onClick={() => { setSearchUser([]); setSearchInput(""); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-300 transition hover:bg-white/[.07]"><IoArrowBackSharp /> Back to messages</button> : <button onClick={handleLogOut} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-300 transition hover:bg-rose-500/15 hover:text-rose-200"><BiLogOut className="text-lg" /> Log out</button>}
+      </div>
+    </aside>
   );
 }
 
 export default Sidebar;
+

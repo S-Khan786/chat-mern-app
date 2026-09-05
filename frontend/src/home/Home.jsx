@@ -1,41 +1,27 @@
-import { useState } from 'react';
-import Sidebar from './components/Sidebar';
-import MessageContainer from './components/MessageContainer';
+import { useState } from "react";
+import Sidebar from "./components/Sidebar";
+import MessageContainer from "./components/MessageContainer";
 
 const Home = () => {
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
 
-  const [selectedUser , setSelectedUser] = useState(null);
-  const [isSidebarVisible , setIsSidebarVisible]= useState(true);
+  const handleUserSelect = (user) => { setSelectedUser(user); setIsSidebarVisible(false); };
+  const handleShowSidebar = () => { setIsSidebarVisible(true); setSelectedUser(null); };
 
-  const handelUserSelect=(user)=>{
-    setSelectedUser(user);
-    setIsSidebarVisible(false);
-  }
-  const handelShowSidebar=()=>{
-    setIsSidebarVisible(true);
-    setSelectedUser(null);
-  }
   return (
-
-    <div className='flex justify-between min-w-full
-     md:min-w-[550px] md:max-w-[65%]
-      px-2 h-[95%] md:h-full  
-      rounded-xl shadow-lg
-       bg-gray-400 bg-clip-padding
-        backdrop-filter backdrop-blur-lg 
-        bg-opacity-0'
-        >
-      <div className={`w-full py-2 md:flex ${isSidebarVisible ? '' : 'hidden'}`}>
-      <Sidebar onSelectUser={handelUserSelect}/>
+    <main className="app-shell glass-panel flex h-[min(820px,calc(100vh-1.5rem))] w-full max-w-7xl overflow-hidden rounded-[1.75rem] sm:h-[min(820px,calc(100vh-3rem))]">
+      <div className={`w-full shrink-0 md:flex md:w-[23rem] ${isSidebarVisible ? "" : "hidden"}`}>
+        <Sidebar onSelectUser={handleUserSelect} />
       </div>
-      <div className={`divider divider-horizontal px-3 md:flex
-         ${isSidebarVisible ? '' : 'hidden'} ${selectedUser ? 'block' : 'hidden'}`}></div>
-      <div className={`flex-auto ${selectedUser ? '' : 'hidden md:flex'} bg-gray-200}`}>
-      <MessageContainer onBackUser={handelShowSidebar}/>
+      <div className="hidden w-px bg-white/10 md:block" />
+      <div className={`min-w-0 flex-1 ${selectedUser ? "" : "hidden md:flex"}`}>
+        <MessageContainer onBackUser={handleShowSidebar} />
       </div>
-    </div>
+    </main>
   );
 };
 
 export default Home;
+
 

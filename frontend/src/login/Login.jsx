@@ -1,117 +1,21 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import axios from 'axios';
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
 import { toast } from "react-toastify";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 
 const Login = () => {
   const navigate = useNavigate();
   const { setAuthUser } = useAuth();
-  const [userInput, setUserInput] = useState({}); // State to store form input values
+  const [userInput, setUserInput] = useState({});
   const [loading, setLoading] = useState(false);
-
-  const handleInput = (e) => {
-    setUserInput((prevData) => ({
-      ...prevData, // Keep the previous form data
-      [e.target.id]: e.target.value, // Update the value of the input with the matching id
-    }));
+  const handleSubmit = async (event) => {
+    event.preventDefault(); setLoading(true);
+    try { const { data } = await axios.post("/api/auth/login", userInput); toast.success(data.message); localStorage.setItem("chatapp", JSON.stringify(data)); setAuthUser(data); navigate("/"); }
+    catch (error) { toast.error(error?.response?.data?.message || "Unable to sign in"); }
+    finally { setLoading(false); }
   };
-
-  // console.log(userInput);
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      const login = await axios.post(`/api/auth/login`, userInput); // backend give response after making http request using axios
-      const data = login.data;
-      if(data.success === false) {
-        setLoading(false);
-        console.log(data.message);
-      }
-      toast.success(data.message);
-      localStorage.setItem('chatapp', JSON.stringify(data));
-      setAuthUser(data);
-      setLoading(false);
-      navigate('/');
-      
-    } catch(err) {
-      setLoading(false);
-      console.log(err);
-      toast.error(err?.response?.data?.message);
-    }
-  }
-
-
-  return (
-    <div className="flex flex-col items-center justify-center mix-w-full mx-auto">
-      <div className="w-full p-6 rounded-lg shadow-lg bg-gray-400 bg-clip-padding backderop-filter backdrop-blur-lg bg-opacity-0">
-        <h1 className="text-3xl font-bold text-center text-gray-300">
-          Login
-          <span className="text-gray-950"> Chatters </span>
-        </h1>
-        <form onSubmit={handleSubmit} className="flex flex-col text-white">
-          <div>
-            <label className="label p-2">
-              <span className="font-bold text-gray-950 text-xl label-text">
-                Email :
-              </span>
-            </label>
-            <input
-              id="email"
-              type="email"
-              onChange={handleInput}
-              placeholder="Enter your email"
-              required
-              className="w-full input input-bordered h-10"
-            />
-          </div>
-          <div>
-            <label className="label p-2">
-              <span className="font-bold text-gray-950 text-xl label-text">
-                Password :
-              </span>
-            </label>
-            <input
-              id="password"
-              type="password"
-              onChange={handleInput}
-              placeholder="Enter your password"
-              required
-              className="w-full input input-bordered h-10"
-            />
-          </div>
-          <button
-            type="submit"
-            className="mt-4 self-center 
-                            w-auto px-2 py-1 bg-gray-950 
-                            text-lg hover:bg-gray-900 
-                            text-white rounded-lg hover: scale-105"
-          >
-            {loading ? "loading...":"Login"}
-          </button>
-        </form>
-        <div className="pt-2">
-          <p
-            className="text-sm font-semibold
-                         text-gray-800"
-          >
-            Do not have an Account ?{" "}
-            <Link to={"/register"}>
-              <span
-                className="text-gray-950 
-                            font-bold underline cursor-pointer
-                             hover:text-green-950"
-              >
-                Register Now!!
-              </span>
-            </Link>
-          </p>
-        </div>
-      </div>
-    </div>
-  );
+  return <div className="glass-panel w-full max-w-md rounded-[2rem] p-6 shadow-2xl shadow-black/30 sm:p-9"><div className="mb-8"><div className="mb-5 grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 text-xl font-black">C</div><p className="text-sm font-semibold uppercase tracking-[.2em] text-violet-300">Welcome back</p><h1 className="mt-2 text-3xl font-bold text-white">Pick up the conversation.</h1><p className="mt-2 text-sm text-slate-400">Sign in to see what you missed.</p></div><form onSubmit={handleSubmit} className="space-y-4"><label className="block"><span className="mb-2 block text-sm font-medium text-slate-200">Email address</span><input id="email" type="email" onChange={(e) => setUserInput({ ...userInput, email: e.target.value })} placeholder="you@example.com" required className="w-full rounded-xl border border-white/10 bg-white/[.07] px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-violet-400" /></label><label className="block"><span className="mb-2 block text-sm font-medium text-slate-200">Password</span><input id="password" type="password" onChange={(e) => setUserInput({ ...userInput, password: e.target.value })} placeholder="Your password" required className="w-full rounded-xl border border-white/10 bg-white/[.07] px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-violet-400" /></label><button type="submit" disabled={loading} className="w-full rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 px-4 py-3 font-semibold text-white shadow-lg shadow-violet-950/30 transition hover:brightness-110 disabled:opacity-60">{loading ? "Signing in..." : "Sign in"}</button></form><p className="mt-6 text-center text-sm text-slate-400">New to Chatters? <Link to="/register" className="font-semibold text-violet-300 hover:text-violet-200">Create an account</Link></p></div>;
 };
-
 export default Login;
+
