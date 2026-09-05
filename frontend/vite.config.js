@@ -11,7 +11,7 @@ export default defineConfig({
   server:{
     proxy:{
       '/api': {
-        target:'https://sk-chat-app.onrender.com/',
+        target:'http://localhost:8000',
         secure: false
       }
     }
