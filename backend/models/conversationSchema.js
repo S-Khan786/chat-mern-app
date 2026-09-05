@@ -1,25 +1,53 @@
 import mongoose from "mongoose";
 
 const conversationSchema = mongoose.Schema({
+    type: {
+        type: String,
+        enum: ["direct", "group"],
+        default: "direct",
+        required: true,
+    },
+    name: {
+        type: String,
+        trim: true,
+        maxlength: 120,
+    },
+    avatar: {
+        type: String,
+        trim: true,
+    },
     participants:[
         {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User',
         }
     ],
-    messages:[
-        {
+    admins: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+    }],
+    lastMessage: {
+        messageId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Message',
-            default: []
-        }
-    ]
+        },
+        senderId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+        },
+        content: String,
+        createdAt: Date,
+    },
 }, { timestamps: true });
 
 conversationSchema.path("participants").validate(
-    (participants) => participants?.length === 2,
-    "A conversation must have exactly two participants"
+    function (participants) {
+        return this.type === "group" ? participants?.length >= 2 : participants?.length === 2;
+    },
+    "A direct conversation needs two participants; a group needs at least two"
 );
+
+conversationSchema.index({ participants: 1, updatedAt: -1 });
 
 const Conversation = mongoose.model('Conversation', conversationSchema);
 

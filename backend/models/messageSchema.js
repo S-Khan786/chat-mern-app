@@ -13,9 +13,15 @@ const messageSchema = mongoose.Schema({
     },
     message: {
         type: String,
-        required: true,
         trim: true,
-        maxlength: 4000
+        maxlength: 4000,
+        required: function () { return !this.attachment?.url; },
+    },
+    attachment: {
+        url: { type: String, trim: true },
+        publicId: { type: String, trim: true },
+        mimeType: { type: String, trim: true },
+        size: { type: Number, min: 0 },
     },
     conversationId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -23,6 +29,8 @@ const messageSchema = mongoose.Schema({
         required: true
     }
 }, { timestamps : true });
+
+messageSchema.index({ conversationId: 1, createdAt: -1 });
 
 const Message = mongoose.model('Message', messageSchema);
 

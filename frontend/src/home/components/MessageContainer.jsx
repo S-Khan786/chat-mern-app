@@ -27,7 +27,7 @@ const MessageContainer = ({ onBackUser }) => {
   useEffect(() => {
     const getMessages = async () => {
       setLoading(true);
-      try { const { data } = await axios.get(`/api/message/${selectedConversation._id}`); setMessage(data); }
+      try { const { data } = await axios.get(`/api/message/${selectedConversation._id}?limit=30`); setMessage(data.messages || []); }
       catch (error) { console.error(error); }
       finally { setLoading(false); }
     };
