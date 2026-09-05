@@ -23,17 +23,26 @@ app.use("/api/auth", userRout);
 app.use("/api/message", messageRout);
 app.use('/api/user', userGet);
 
+app.use("/api", (req, res) => {
+  res.status(404).json({ success: false, message: "API route not found" });
+});
+
 app.use(express.static(path.join(__dirname, "/frontend/dist")));
 
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "frontend", "dist", "index.html"));
 });
 
-server.listen(port, (err) => {
-  if (err) {
-    console.log(`Error: ${err}`);
+const startServer = async () => {
+  try {
+    await dbConnect();
+    server.listen(port, () => console.log(`Server is running on port ${port}`));
+  } catch (error) {
+    console.error("Failed to start server:", error.message);
+    process.exit(1);
   }
-  dbConnect();  // Ensure MongoDB connection is established
-  console.log(`Server is running on the port: ${port}`);
-});
+};
+
+startServer();
+
 
