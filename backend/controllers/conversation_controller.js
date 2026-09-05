@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Conversation from "../models/conversationSchema.js";
+import { emitToUser } from "../Socket/socket.js";
 
 const validIds = (ids) => Array.isArray(ids) && ids.length > 0 && ids.every((id) => mongoose.isValidObjectId(id));
 
@@ -20,6 +21,9 @@ export const createGroupConversation = async (req, res) => {
       participants: allParticipants,
       admins: [req.user._id],
     });
+    for (const participantId of conversation.participants) {
+      emitToUser(participantId.toString(), "conversationCreated", conversation);
+    }
     return res.status(201).json(conversation);
   } catch (error) {
     console.error("Create group error:", error.message);
@@ -59,6 +63,9 @@ export const updateGroupParticipants = async (req, res) => {
     }
     if (conversation.participants.length < 2) return res.status(400).json({ success: false, message: "A group needs at least two participants" });
     await conversation.save();
+    if (action === "add") {
+      emitToUser(userId.toString(), "conversationCreated", conversation);
+    }
     return res.status(200).json(conversation);
   } catch (error) {
     console.error("Update group members error:", error.message);

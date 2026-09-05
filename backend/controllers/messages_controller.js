@@ -1,20 +1,14 @@
 import mongoose from "mongoose";
 import Conversation from "../models/conversationSchema.js";
 import Message from "../models/messageSchema.js";
-import { getReciverSocketId, io } from "../Socket/socket.js";
+import { emitToConversationMembers, io } from "../Socket/socket.js";
 
 const invalidUser = (id) => !mongoose.isValidObjectId(id);
 const roomName = (conversationId) => `conversation:${conversationId}`;
 const isMember = (conversation, userId) => conversation?.participants.some((participant) => String(participant._id || participant) === String(userId));
 
 const publishMessage = async (message, conversation) => {
-  if (conversation.type === "group") io.to(roomName(conversation._id)).emit("newMessage", message);
-  if (conversation.type === "group") return;
-  for (const participantId of conversation.participants) {
-    if (participantId.equals(message.senderId)) continue;
-    const socketId = await getReciverSocketId(participantId.toString());
-    if (socketId) io.to(socketId).emit("newMessage", message);
-  }
+  await emitToConversationMembers(conversation._id, "newMessage", message);
 };
 
 const createMessage = async ({ conversation, senderId, message, attachment }) => {
@@ -32,6 +26,7 @@ const createMessage = async ({ conversation, senderId, message, attachment }) =>
     attachment: hasAttachment ? attachment : undefined,
     conversationId: conversation._id,
   });
+  console.log(`[message:created] messageId=${newMessage._id} conversationId=${conversation._id} senderId=${senderId} type=${conversation.type}`);
   await Conversation.updateOne(
     { _id: conversation._id },
     { $set: { lastMessage: { messageId: newMessage._id, senderId, content: content || "Attachment", createdAt: newMessage.createdAt }, updatedAt: newMessage.createdAt } }
@@ -50,6 +45,7 @@ export const sendMessage = async (req, res) => {
     let conversation = await Conversation.findOne({ type: "direct", participants: { $all: [req.user._id, receiverId] } });
     if (!conversation) conversation = await Conversation.create({ type: "direct", participants: [req.user._id, receiverId] });
     const newMessage = await createMessage({ conversation, senderId: req.user._id, message: req.body.message, attachment: req.body.attachment });
+    console.log(`[message:send:response] messageId=${newMessage._id} senderId=${req.user._id} receiverId=${receiverId}`);
     return res.status(201).json(newMessage);
   } catch (error) {
     const status = messageErrorStatus(error);
@@ -81,7 +77,7 @@ const getPaginatedMessages = async (conversationId, req, res) => {
   const hasMore = messages.length > limit;
   if (hasMore) messages.pop();
   messages.reverse();
-  return res.status(200).json({ messages, hasMore, nextCursor: messages[0]?._id || null });
+  return res.status(200).json({ conversationId, messages, hasMore, nextCursor: messages[0]?._id || null });
 };
 
 export const getMessage = async (req, res) => {
@@ -124,7 +120,7 @@ const updateReceipt = async (req, res, status) => {
       message.deliveryStatus.push({ userId: req.user._id, status, at: new Date() });
     }
     await message.save();
-    io.to(roomName(message.conversationId)).emit("messageReceipt", { messageId: message._id, userId: req.user._id, status });
+    await emitToConversationMembers(message.conversationId, "messageReceipt", { messageId: message._id, userId: req.user._id, status });
     return res.status(200).json({ messageId: message._id, userId: req.user._id, status });
   } catch (error) {
     console.error("Update receipt error:", error.message);
@@ -148,7 +144,7 @@ export const setReaction = async (req, res) => {
     if (existing) existing.emoji = emoji;
     else message.reactions.push({ userId: req.user._id, emoji });
     await message.save();
-    io.to(roomName(message.conversationId)).emit("messageReaction", { messageId: message._id, userId: req.user._id, emoji });
+    await emitToConversationMembers(message.conversationId, "messageReaction", { messageId: message._id, userId: req.user._id, emoji });
     return res.status(200).json(message.reactions);
   } catch (error) {
     console.error("Set reaction error:", error.message);
@@ -165,7 +161,7 @@ export const removeReaction = async (req, res) => {
     if (!isMember(conversation, req.user._id)) return res.status(403).json({ success: false, message: "You are not a conversation member" });
     message.reactions = message.reactions.filter((reaction) => !reaction.userId.equals(req.user._id));
     await message.save();
-    io.to(roomName(message.conversationId)).emit("messageReactionRemoved", { messageId: message._id, userId: req.user._id });
+    await emitToConversationMembers(message.conversationId, "messageReactionRemoved", { messageId: message._id, userId: req.user._id });
     return res.status(200).json(message.reactions);
   } catch (error) {
     console.error("Remove reaction error:", error.message);
