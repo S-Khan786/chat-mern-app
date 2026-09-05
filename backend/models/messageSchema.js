@@ -9,7 +9,7 @@ const messageSchema = mongoose.Schema({
     receiverId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true
+        required: false
     },
     message: {
         type: String,
@@ -27,7 +27,40 @@ const messageSchema = mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Conversation',
         required: true
-    }
+    },
+    deliveryStatus: [{
+        userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            required: true,
+        },
+        status: {
+            type: String,
+            enum: ["delivered", "read"],
+            default: "delivered",
+        },
+        at: {
+            type: Date,
+            default: Date.now,
+        },
+    }],
+    reactions: [{
+        userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            required: true,
+        },
+        emoji: {
+            type: String,
+            required: true,
+            trim: true,
+            maxlength: 16,
+        },
+        createdAt: {
+            type: Date,
+            default: Date.now,
+        },
+    }]
 }, { timestamps : true });
 
 messageSchema.index({ conversationId: 1, createdAt: -1 });

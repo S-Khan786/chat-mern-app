@@ -13,6 +13,11 @@ export default defineConfig({
       '/api': {
         target:'http://localhost:8000',
         secure: false
+      },
+      '/socket.io': {
+        target:'http://localhost:8000',
+        ws: true,
+        secure: false
       }
     }
   }

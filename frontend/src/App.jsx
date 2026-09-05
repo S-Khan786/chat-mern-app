@@ -8,7 +8,7 @@ import VerifyUser from "./utils/VerifyUser.jsx";
 function App() {
   return (
     <>
-      <div className="min-h-screen w-full p-3 sm:p-6 lg:p-8 flex items-center justify-center">
+      <div className="flex min-h-[100dvh] w-full items-center justify-center p-2 sm:p-4 lg:p-8">
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />

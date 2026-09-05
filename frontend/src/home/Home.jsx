@@ -10,12 +10,12 @@ const Home = () => {
   const handleShowSidebar = () => { setIsSidebarVisible(true); setSelectedUser(null); };
 
   return (
-    <main className="app-shell glass-panel flex h-[min(820px,calc(100vh-1.5rem))] w-full max-w-7xl overflow-hidden rounded-[1.75rem] sm:h-[min(820px,calc(100vh-3rem))]">
-      <div className={`w-full shrink-0 md:flex md:w-[23rem] ${isSidebarVisible ? "" : "hidden"}`}>
+    <main className="app-shell glass-panel flex h-[calc(100dvh-1rem)] min-h-0 w-full max-w-7xl overflow-hidden rounded-2xl lg:h-[min(860px,calc(100dvh-3rem))] lg:rounded-[1.75rem]">
+      <div className={`w-full min-h-0 shrink-0 lg:flex lg:w-[22rem] ${isSidebarVisible ? "" : "hidden"}`}>
         <Sidebar onSelectUser={handleUserSelect} />
       </div>
-      <div className="hidden w-px bg-white/10 md:block" />
-      <div className={`min-w-0 flex-1 ${selectedUser ? "" : "hidden md:flex"}`}>
+      <div className="hidden w-px bg-white/10 lg:block" />
+      <div className={`min-h-0 min-w-0 flex-1 ${selectedUser ? "" : "hidden lg:flex"}`}>
         <MessageContainer onBackUser={handleShowSidebar} />
       </div>
     </main>

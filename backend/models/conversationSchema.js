@@ -40,6 +40,20 @@ const conversationSchema = mongoose.Schema({
     },
 }, { timestamps: true });
 
+conversationSchema.path("name").validate(
+    function (name) {
+        return this.type !== "group" || Boolean(name?.trim());
+    },
+    "A group conversation needs a name"
+);
+
+conversationSchema.path("admins").validate(
+    function (admins) {
+        return this.type !== "group" || admins?.every((admin) => this.participants?.some((participant) => participant.equals(admin)));
+    },
+    "Group admins must be participants"
+);
+
 conversationSchema.path("participants").validate(
     function (participants) {
         return this.type === "group" ? participants?.length >= 2 : participants?.length === 2;
