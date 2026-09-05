@@ -16,21 +16,32 @@ function Sidebar({ onSelectUser }) {
   const { authUser, setAuthUser } = useAuth();
   const { onlineUser, socket } = useSocketContext();
   const { theme, toggleTheme } = useTheme();
-  const { messages, setSelectedConversation } = userConversation();
+  const { setSelectedConversation } = userConversation();
   const [searchInput, setSearchInput] = useState("");
   const [searchUser, setSearchUser] = useState([]);
   const [chatUser, setChatUser] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [newMessageUsers, setNewMessageUsers] = useState({});
+  const [unreadCounts, setUnreadCounts] = useState({});
   const [groupMode, setGroupMode] = useState(false);
   const [groupName, setGroupName] = useState("");
   const [groupMembers, setGroupMembers] = useState([]);
 
   useEffect(() => {
-    socket?.on("newMessage", setNewMessageUsers);
-    return () => socket?.off("newMessage");
-  }, [socket, messages]);
+    const handleNewMessage = (message) => {
+      const senderId = String(message.senderId?._id || message.senderId);
+      const currentUserId = String(authUser?._id);
+      if (senderId === currentUserId) return;
+      const isGroupMessage = Boolean(message.conversationId && !message.receiverId);
+      const conversationKey = isGroupMessage
+        ? String(message.conversationId)
+        : senderId === currentUserId ? String(message.receiverId) : senderId;
+      if (String(selectedUserId) === conversationKey) return;
+      setUnreadCounts((current) => ({ ...current, [conversationKey]: (current[conversationKey] || 0) + 1 }));
+    };
+    socket?.on("newMessage", handleNewMessage);
+    return () => socket?.off("newMessage", handleNewMessage);
+  }, [socket, authUser?._id, selectedUserId]);
 
   useEffect(() => {
     const addConversation = (conversation) => {
@@ -87,7 +98,7 @@ function Sidebar({ onSelectUser }) {
         return;
       }
     }
-    onSelectUser(conversation); setSelectedConversation(conversation); setSelectedUserId(conversation._id); setNewMessageUsers({});
+    onSelectUser(conversation); setSelectedConversation(conversation); setSelectedUserId(conversation._id); setUnreadCounts((current) => ({ ...current, [conversation._id]: 0 }));
   };
 
   const handleCreateGroup = async (event) => {
@@ -113,9 +124,15 @@ function Sidebar({ onSelectUser }) {
     <aside className="sidebar-panel flex h-full min-h-0 w-full flex-col p-3 sm:p-5">
       <div className="mb-4 flex shrink-0 items-center gap-3 sm:mb-5">
         <div className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 text-lg font-black text-[#21151a] shadow-lg shadow-black/20">C</div>
-        <div className="min-w-0 flex-1"><p className="text-xs font-bold uppercase tracking-[.18em] text-violet-300">Chatters</p><h1 className="truncate text-lg font-semibold text-white">Good to see you</h1></div>
-        <div className="flex items-center gap-2"><button type="button" onClick={toggleTheme} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/[.06] text-violet-200 transition hover:border-violet-300/40 hover:bg-white/[.12]">{theme === "dark" ? <FiSun /> : <FiMoon />}</button><img onClick={() => navigate(`/profile/${authUser?._id}`)} src={authUser?.profilePic} alt="Your profile" className="h-10 w-10 cursor-pointer rounded-xl object-cover ring-2 ring-white/15 transition hover:ring-violet-400" /></div>
+        <div className="min-w-0 flex-1"><p className="text-xs font-bold uppercase tracking-[.18em] text-violet-300">Chatters</p><h1 className="max-w-[9rem] text-base font-semibold leading-tight text-white sm:text-lg">Good to see you</h1></div>
+        <div className="flex shrink-0"><button type="button" onClick={toggleTheme} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[.06] text-violet-200 transition hover:border-violet-300/40 hover:bg-white/[.12]">{theme === "dark" ? <FiSun /> : <FiMoon />}</button></div>
       </div>
+
+      <button type="button" onClick={() => navigate(`/profile/${authUser?._id}`)} className="mb-4 flex w-full min-w-0 items-center gap-3 rounded-2xl border border-white/10 bg-white/[.045] p-3 text-left transition hover:border-violet-300/30 hover:bg-white/[.08]">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-violet-400/25 to-cyan-400/20 text-sm font-bold text-violet-200">{authUser?.fullname?.charAt(0)?.toUpperCase() || "U"}</div>
+        <span className="min-w-0"><span className="block truncate text-sm font-semibold text-white">{authUser?.fullname || "Your profile"}</span><span className="block truncate text-xs text-slate-400">@{authUser?.username || "username"}</span></span>
+        <span className="ml-auto shrink-0 text-xs text-slate-400">Profile</span>
+      </button>
 
       <form onSubmit={(event) => event.preventDefault()} className="search-shell theme-input group mb-4 flex shrink-0 items-center rounded-2xl border px-3 py-1.5 transition focus-within:border-violet-400/60 sm:mb-5">
         <FaSearch className="ml-1 text-sm text-slate-400" />
@@ -131,13 +148,13 @@ function Sidebar({ onSelectUser }) {
         {users.map((user) => {
           const isGroup = user.type === "group";
           const displayName = isGroup ? user.name : user.username;
-          const unread = newMessageUsers?.receiverId === authUser?._id && newMessageUsers?.senderId === user._id;
+          const unread = unreadCounts[user._id] || 0;
           const online = onlineUser.includes(user._id);
           const selectedForGroup = groupMembers.includes(user._id);
           return <button key={user._id} onClick={() => handleUserClick(user)} className={`conversation-item mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition ${selectedForGroup || selectedUserId === user._id ? "is-active text-white" : "text-slate-200"}`}>
             <div className="conversation-avatar relative shrink-0 rounded-xl p-0.5"><img src={isGroup ? (user.avatar || authUser?.profilePic) : user.profilePic} alt="" className="h-10 w-10 rounded-[.65rem] object-cover" />{online && !isGroup && <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#16213d] bg-emerald-400" />}</div>
             <span className="min-w-0 flex-1"><span className="block truncate font-semibold">{displayName}</span><span className={`block truncate text-xs ${selectedUserId === user._id ? "text-violet-100" : "text-slate-400"}`}>{isGroup ? `${user.participants?.length || 0} members` : online ? "Online now" : "Tap to open conversation"}</span></span>
-            {groupMode && <span className="grid h-5 min-w-5 place-items-center rounded-full border border-white/30 text-xs">{selectedForGroup ? "✓" : "+"}</span>}{unread && !groupMode && <span className="grid h-5 min-w-5 place-items-center rounded-full bg-emerald-400 px-1 text-[10px] font-bold text-emerald-950">1</span>}
+            {groupMode && <span className="grid h-5 min-w-5 place-items-center rounded-full border border-white/30 text-xs">{selectedForGroup ? "✓" : "+"}</span>}{unread > 0 && !groupMode && <span className="grid h-6 min-w-6 place-items-center rounded-full bg-cyan-400 px-1.5 text-[11px] font-bold text-[#09201f]">{unread > 99 ? "99+" : unread}</span>}
           </button>;
         })}
       </div>
