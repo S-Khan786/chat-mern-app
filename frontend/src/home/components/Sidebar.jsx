@@ -50,17 +50,26 @@ function Sidebar({ onSelectUser }) {
     loadChatters();
   }, []);
 
-  const handleSearchSubmit = async (event) => {
-    event.preventDefault();
-    if (!searchInput.trim()) return;
-    setLoading(true);
-    try {
-      const { data } = await axios.get(`/api/user/search?search=${searchInput}`);
-      if (!data?.length) toast.info("No users found");
-      setSearchUser(data || []);
-    } catch (error) { console.error(error); }
-    finally { setLoading(false); }
-  };
+  useEffect(() => {
+    const search = searchInput.trim();
+    if (!search) {
+      setSearchUser([]);
+      return undefined;
+    }
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const { data } = await axios.get(`/api/user/search?search=${encodeURIComponent(search)}`);
+        setSearchUser(data || []);
+      } catch (error) {
+        console.error("Live search error:", error);
+        setSearchUser([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   const handleUserClick = async (user) => {
     if (groupMode) {
@@ -92,15 +101,14 @@ function Sidebar({ onSelectUser }) {
   };
 
   const handleLogOut = async () => {
-    if (window.prompt("Type your username to log out") !== authUser.username) return toast.info("Logout cancelled");
     try {
       const { data } = await axios.post("/api/auth/logout");
       toast.info(data?.message); localStorage.removeItem("chatapp"); setAuthUser(null); navigate("/login");
     } catch (error) { console.error(error); }
   };
 
-  const users = (searchUser.length ? searchUser : chatUser).filter((user) => !groupMode || user.type !== "group");
-  const isSearching = searchUser.length > 0;
+  const isSearching = searchInput.trim().length > 0;
+  const users = (isSearching ? searchUser : chatUser).filter((user) => !groupMode || user.type !== "group");
   return (
     <aside className="sidebar-panel flex h-full min-h-0 w-full flex-col p-3 sm:p-5">
       <div className="mb-4 flex shrink-0 items-center gap-3 sm:mb-5">
@@ -109,9 +117,9 @@ function Sidebar({ onSelectUser }) {
         <div className="flex items-center gap-2"><button type="button" onClick={toggleTheme} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/[.06] text-violet-200 transition hover:border-violet-300/40 hover:bg-white/[.12]">{theme === "dark" ? <FiSun /> : <FiMoon />}</button><img onClick={() => navigate(`/profile/${authUser?._id}`)} src={authUser?.profilePic} alt="Your profile" className="h-10 w-10 cursor-pointer rounded-xl object-cover ring-2 ring-white/15 transition hover:ring-violet-400" /></div>
       </div>
 
-      <form onSubmit={handleSearchSubmit} className="search-shell theme-input group mb-4 flex shrink-0 items-center rounded-2xl border px-3 py-1.5 transition focus-within:border-violet-400/60 sm:mb-5">
+      <form onSubmit={(event) => event.preventDefault()} className="search-shell theme-input group mb-4 flex shrink-0 items-center rounded-2xl border px-3 py-1.5 transition focus-within:border-violet-400/60 sm:mb-5">
         <FaSearch className="ml-1 text-sm text-slate-400" />
-        <input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} type="search" placeholder="Search people" className="min-w-0 flex-1 px-3 py-2 text-sm text-white placeholder:text-slate-400" />
+        <input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} type="search" placeholder="Search people" aria-label="Search people" className="min-w-0 flex-1 px-3 py-2 text-sm text-white placeholder:text-slate-400" />
         <button aria-label="Search" className="grid h-8 w-8 place-items-center rounded-xl bg-violet-500 text-xs text-white transition hover:bg-violet-400"><FaSearch /></button>
       </form>
 
@@ -119,7 +127,7 @@ function Sidebar({ onSelectUser }) {
       {groupMode && <form onSubmit={handleCreateGroup} className="mb-4 shrink-0 rounded-2xl border border-violet-400/20 bg-violet-500/10 p-3 shadow-lg shadow-black/10"><input value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="Group name" className="mb-2 w-full rounded-xl border border-white/10 bg-[#09151d]/60 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400" /><p className="mb-2 text-xs text-slate-400">Select members below: {groupMembers.length}</p><button className="w-full rounded-xl bg-violet-500 px-3 py-2 text-sm font-semibold text-[#21151a] transition hover:-translate-y-0.5 hover:bg-violet-400">Create group</button></form>}
       <div className="scrollbar min-h-0 flex-1 overflow-y-auto pr-1">
         {loading && <div className="grid h-32 place-items-center"><span className="loading loading-spinner text-violet-300" /></div>}
-        {!loading && users.length === 0 && <div className="mt-10 px-5 text-center"><div className="mb-3 text-3xl">✨</div><p className="font-medium text-white">Your conversations will live here.</p><p className="mt-1 text-sm text-slate-400">Find someone by username to start.</p></div>}
+        {!loading && users.length === 0 && <div className="mt-10 px-5 text-center"><div className="mb-3 text-3xl">{isSearching ? "⌕" : "✨"}</div><p className="font-medium text-white">{isSearching ? "No people found" : "Your conversations will live here."}</p><p className="mt-1 text-sm text-slate-400">{isSearching ? "Try another username or name." : "Find someone by username to start."}</p></div>}
         {users.map((user) => {
           const isGroup = user.type === "group";
           const displayName = isGroup ? user.name : user.username;

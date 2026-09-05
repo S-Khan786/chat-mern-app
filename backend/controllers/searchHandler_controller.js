@@ -9,13 +9,25 @@ export const getUserBySearch = async (req, res) => {
       typeof req.query.search === "string" ? req.query.search.trim() : "";
     if (!search) return res.status(200).json([]);
     const expression = new RegExp(escapeRegex(search), "i");
-    const users = await User.find({
-      _id: { $ne: req.user._id },
-      $or: [{ username: expression }, { fullname: expression }],
-    })
-      .select("-password -email")
-      .limit(25);
-    return res.status(200).json(users);
+    const [users, groups] = await Promise.all([
+      User.find({
+        _id: { $ne: req.user._id },
+        $or: [{ username: expression }, { fullname: expression }],
+      })
+        .select("-password -email")
+        .limit(25)
+        .lean(),
+      Conversation.find({
+        type: "group",
+        participants: req.user._id,
+        name: expression,
+      })
+        .populate("participants", "username fullname profilePic")
+        .sort({ updatedAt: -1 })
+        .limit(25)
+        .lean(),
+    ]);
+    return res.status(200).json([...groups, ...users].slice(0, 25));
   } catch (error) {
     console.error("User search error:", error.message);
     return res
