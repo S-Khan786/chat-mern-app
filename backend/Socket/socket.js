@@ -3,6 +3,9 @@ import http from 'http';
 import express from 'express';
 import 'dotenv/config';
 import { createClient } from 'redis';
+import mongoose from 'mongoose';
+import Conversation from '../models/conversationSchema.js';
+import Message from '../models/messageSchema.js';
 
 const app = express();
 
@@ -29,6 +32,28 @@ export const getReciverSocketId = async (receiverId) => {
 };
 
 const onlineUsers = async () => presence?.isReady ? presence.hKeys('chat:presence') : Object.keys(userSocketmap);
+const roomName = (conversationId) => `conversation:${conversationId}`;
+
+const canAccessConversation = async (conversationId, userId) => {
+    if (!mongoose.isValidObjectId(conversationId) || !mongoose.isValidObjectId(userId)) return false;
+    const conversation = await Conversation.findOne({ _id: conversationId, participants: userId }).select('_id').lean();
+    return Boolean(conversation);
+};
+
+const updateReceipt = async (messageId, userId, status) => {
+    if (!mongoose.isValidObjectId(messageId) || !mongoose.isValidObjectId(userId)) return null;
+    const message = await Message.findById(messageId);
+    if (!message || !(await canAccessConversation(message.conversationId, userId))) return null;
+    const existing = message.deliveryStatus.find((receipt) => receipt.userId.equals(userId));
+    if (existing) {
+        if (status === 'read' || existing.status !== 'read') existing.status = status;
+        existing.at = new Date();
+    } else {
+        message.deliveryStatus.push({ userId, status, at: new Date() });
+    }
+    await message.save();
+    return { messageId: message._id, userId, status, conversationId: message.conversationId };
+};
 
 io.on('connection', async (socket) => {
     const userId = socket.handshake.query.userId;
@@ -38,6 +63,31 @@ io.on('connection', async (socket) => {
         if (presence?.isReady) await presence.hSet('chat:presence', userId, socket.id);
     }
     io.emit("getOnlineUsers", await onlineUsers());
+
+    socket.on('joinConversation', async ({ conversationId } = {}) => {
+        if (await canAccessConversation(conversationId, userId)) socket.join(roomName(conversationId));
+    });
+
+    socket.on('leaveConversation', ({ conversationId } = {}) => {
+        if (mongoose.isValidObjectId(conversationId)) socket.leave(roomName(conversationId));
+    });
+
+    const broadcastTyping = async (conversationId, typing) => {
+        if (await canAccessConversation(conversationId, userId)) {
+            socket.to(roomName(conversationId)).emit('typing', { conversationId, userId, typing });
+        }
+    };
+
+    socket.on('typing:start', ({ conversationId } = {}) => broadcastTyping(conversationId, true));
+    socket.on('typing:stop', ({ conversationId } = {}) => broadcastTyping(conversationId, false));
+
+    const broadcastReceipt = async (messageId, status) => {
+        const receipt = await updateReceipt(messageId, userId, status);
+        if (receipt) io.to(roomName(receipt.conversationId)).emit('messageReceipt', receipt);
+    };
+
+    socket.on('message:delivered', ({ messageId } = {}) => broadcastReceipt(messageId, 'delivered'));
+    socket.on('message:read', ({ messageId } = {}) => broadcastReceipt(messageId, 'read'));
 
     socket.on('disconnect', async () => {
         if (userId) {

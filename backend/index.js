@@ -4,6 +4,7 @@ import path from "path";
 import cookieParser from "cookie-parser";
 import userRout from "./routes/userRout.js";
 import messageRout from "./routes/messageRout.js";
+import conversationRout from "./routes/conversationRout.js";
 import userGet from './routes/search.js';
 import { app, server } from './Socket/socket.js';
 import dbConnect from "./config/mongoose.js";
@@ -21,6 +22,7 @@ const port = process.env.PORT || 8000;
 // Use express router
 app.use("/api/auth", userRout);
 app.use("/api/message", messageRout);
+app.use("/api/conversation", conversationRout);
 app.use('/api/user', userGet);
 
 app.use("/api", (req, res) => {
