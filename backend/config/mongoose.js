@@ -12,13 +12,14 @@
 
 import mongoose from "mongoose";
 
-const dbConnect = async() => {
-    try {
-        await mongoose.connect(process.env.MONGODB_CONNECT),
-        console.log("DB CONNECTED SUCCESSFULLY")
-    } catch(err) {
-        console.log(err);
+const dbConnect = async () => {
+    if (!process.env.MONGODB_CONNECT) {
+        throw new Error("MONGODB_CONNECT is not configured");
     }
-}
+
+    await mongoose.connect(process.env.MONGODB_CONNECT);
+    console.log("Database connected successfully");
+};
 
 export default dbConnect;
+
